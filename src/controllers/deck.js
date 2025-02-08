@@ -19,7 +19,6 @@ exports.uploadDeck = async (req, res) => {
         fs.createReadStream(filePath)
             .pipe(csvParser())
             .on('data', async (row) => {
-
                 try {
 
                     const evaluator = await User.findOne(
@@ -43,35 +42,21 @@ exports.uploadDeck = async (req, res) => {
                         packetNumber: row.packetNumber,
                         semester: row.semester,
                         studentCount: row.studentCount,
-                        rackNumber: row.rackNumber,
+                        rackNumber: parseInt(row.rackNumber),
                         numberOfAnswerSheets: row.numberOfAnswerSheets,
                         roomNumber: row.roomNumber
                     }
-                    decks.push(deck)
-                }catch(err) {
+                    await Deck.create(deck)
+                } catch (err) {
                     logger.error(`Error: ${err.message || err.toString()}`)
                 }
             })
             .on('end', async () => {
-                try {
-                    
-                    await Deck.insertMany(decks);
-                    logger.info(`${decks.length} decks were successfully imported.`)
-                    
-                    return res.status(201).json({
-                        success: true,
-                        message: `${decks.length} decks were imported!`
-                    })
 
-                } catch (err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                    return res.status(400).json({
-                        error: true,
-                        message: 'An Unexpected Error Occured!',
-                        errorJSON: err,
-                        errorString: err.message || err.toString()
-                    })
-                }
+                return res.status(201).json({
+                    success: true,
+                    message: `Decks were imported!`
+                })
             })
 
 
@@ -94,11 +79,20 @@ exports.getDecks = async (req, res) => {
             limit,
         } = req.query
 
-       
+
         const options = {
             page: page ? page : 1,
             limit: limit ? limit : 10,
             sort: { schoolName: 1 },
+            populate: [
+                {
+                    path: 'evaluator',
+                    select: 'firstName lastName emailAddress sapId' 
+                },
+                {
+                    path: 'school'
+                }
+            ]        
         }
 
         const response = await Deck.paginate({}, options)
@@ -127,7 +121,7 @@ exports.getAssingedDecks = async (req, res) => {
 
         const user = await User.findOne({ _id: req.auth._id })
         const response = await Deck.find({ evaluatorEmail: user.emailAddress })
-        if(response.length === 0) 
+        if (response.length === 0)
             return res.status(404).json({
                 error: true,
                 message: 'cannot find'
@@ -161,7 +155,7 @@ exports.getDeckById = async (req, res) => {
 
         const response = await Deck.findOne({ _id: deckId })
 
-        if(!response)
+        if (!response)
             return res.status(404).json({
                 error: true,
                 message: `Deck not found`
@@ -190,7 +184,7 @@ exports.pickUpDeck = async (req, res) => {
 
         const user = await User.findOne({ _id: req.auth._id })
         const response = await Deck.find({ evaluatorEmail: user.emailAddress })
-        if(response.length === 0) 
+        if (response.length === 0)
             return res.status(404).json({
                 error: true,
                 message: 'cannot find'
