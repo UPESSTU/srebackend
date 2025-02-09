@@ -8,6 +8,11 @@ const schoolSchema = new Schema({
         type: String,
         required: true,
         unique: true
+    },
+    shortName: {
+        type: String,
+        required: true,
+        unique: true
     }
 }, { timestamps: true })
 

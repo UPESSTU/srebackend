@@ -6,11 +6,13 @@ exports.addSchool = async (req, res) => {
     try {
 
         const {
-            schoolName
+            schoolName,
+            shortName
         } = req.body
 
         const school = new School({
-            schoolName: schoolName
+            schoolName: schoolName,
+            shortName: shortName
         })
         
         const response = await school.save()

@@ -49,7 +49,7 @@ const deckSchema = new Schema({
         required: true
     },
     rackNumber: {
-        type: Number,
+        type: String,
         required: true
     },
     numberOfAnswerSheets: {
@@ -58,7 +58,7 @@ const deckSchema = new Schema({
     },
     statusOfDeck: {
         type: String,
-        enum: ['PENDING', 'PICKED_UP', 'EVALUATED'],
+        enum: ['PENDING', 'PICKED_UP', 'DROPPED'],
         default: 'PENDING'
     }
 }, { timestamps: true })

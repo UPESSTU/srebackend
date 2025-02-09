@@ -28,7 +28,7 @@ exports.uploadDeck = async (req, res) => {
                     )
                     const school = await School.findOne(
                         {
-                            schoolName: row.schoolName
+                            shortName: row.schoolName
                         }
                     )
 
@@ -42,7 +42,7 @@ exports.uploadDeck = async (req, res) => {
                         packetNumber: row.packetNumber,
                         semester: row.semester,
                         studentCount: row.studentCount,
-                        rackNumber: parseInt(row.rackNumber),
+                        rackNumber: row.rackNumber,
                         numberOfAnswerSheets: row.numberOfAnswerSheets,
                         roomNumber: row.roomNumber
                     }
@@ -182,17 +182,38 @@ exports.getDeckById = async (req, res) => {
 exports.pickUpDeck = async (req, res) => {
     try {
 
-        const user = await User.findOne({ _id: req.auth._id })
-        const response = await Deck.find({ evaluatorEmail: user.emailAddress })
-        if (response.length === 0)
-            return res.status(404).json({
+        const {
+            deckId
+        } = req.body
+
+        let status
+
+        if(req.auth.user.role === 'FACULTY')
+            status = 'PICKED_UP'
+        else if(req.auth.user.role === 'MODERATOR' || req.auth.user.role === 'ADMIN')
+            status = 'DROPPED'
+
+        if(!status) 
+            return res.status(403).json({
                 error: true,
-                message: 'cannot find'
+                message: 'You are not allowed'
             })
 
+        const response = await Deck.findByIdAndUpdate(
+            {
+                _id: deckId
+            },
+            {
+                statusOfDeck: status
+            },
+            {
+                new: true
+            }
+        )
+        
         res.json({
             success: true,
-            message: `Fetched Assigend!`,
+            message: `Status Updated To ${status}!`,
             dbRes: response
         })
 
