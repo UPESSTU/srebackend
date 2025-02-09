@@ -86,20 +86,18 @@ exports.signIn = async (req, res) => {
 
         time.setTime(time.getTime() + 1800 * 1000)
 
-        res.cookie(
-            process.env.AUTH_COOKIE_NAME,
-            token,
-            {
-                expire: time,
-                path: "/",
-                domain: process.env.DOMAIN,
-            }
-        )
+        res.cookie(process.env.AUTH_COOKIE_NAME, token, {
+          expire: time,
+          path: "/",
+          domain: process.env.DOMAIN,
+          sameSite: "None",
+        });
 
         res.status(200).json({
             success: true,
             message: 'Logged In!',
-            dbRes: response
+            dbRes: response,
+            token: token
         })
 
     } catch (err) {
@@ -236,17 +234,21 @@ exports.addFacultyBulk = async (req, res) => {
 
         const faculties = new Array()
         const emailFaculties = new Array()
-
+        
         fs.createReadStream(filePath)
             .pipe(csvParser())
             .on('data', async (row) => {
+                console.log(row)
 
                 try {
+                    // console.log("Received Data:", req.body);
+                    const sapId = parseInt(row.sapId)
+                    console.log(row.sapId)
                     const salt = randomUUID()
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
                     const faculty = {
-                        sapId: row.sapId,
+                        sapId: sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
                         userName: row.emailAddress.split('@')[0],
