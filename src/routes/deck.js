@@ -8,10 +8,18 @@ const {
     uploadDeck, 
     getDecks,
     getDeckById,
-    getAssingedDecks
+    getAssingedDecks,
+    pickUpDeck
 } = require('../controllers/deck')
 
 const router = express.Router()
+
+router.post(
+    '/pickup',
+    authenticate,
+    authorizeRoles(['ADMIN', 'FACULTY', 'MODERATOR']),
+    pickUpDeck
+)
 
 router.get(
     '/all', 
