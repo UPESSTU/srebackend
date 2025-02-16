@@ -2,23 +2,34 @@ const express = require('express')
 
 
 const {upload} = require('../utils/upload')
+
 const authenticate = require('../middlewares/authenticate')
 const authorizeRoles = require('../middlewares/permission')
+
 const { 
     uploadDeck, 
     getDecks,
     getDeckById,
     getAssingedDecks,
-    pickUpDeck
+    addDeck,
+    changeStatusOfDeck,
+    changeAnswerSheetCount,
+    manualReminderToDrop
 } = require('../controllers/deck')
 
 const router = express.Router()
 
 router.post(
-    '/pickup',
+    '/status',
     authenticate,
-    authorizeRoles(['ADMIN', 'FACULTY', 'MODERATOR']),
-    pickUpDeck
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    changeStatusOfDeck
+)
+router.post(
+    '/count',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    changeAnswerSheetCount
 )
 
 router.get(
@@ -50,6 +61,21 @@ router.post(
     upload.single('file'),
     uploadDeck
 )
+
+router.post(
+    '/add', 
+    authenticate, 
+    authorizeRoles(['ADMIN', 'MODERATOR']), 
+    addDeck
+)
+
+router.post(
+    '/reminder',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    manualReminderToDrop
+)
+
 
 
 module.exports = router

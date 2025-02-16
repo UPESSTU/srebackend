@@ -241,9 +241,7 @@ exports.addFacultyBulk = async (req, res) => {
                 console.log(row)
 
                 try {
-                    // console.log("Received Data:", req.body);
                     const sapId = parseInt(row.sapId)
-                    console.log(row.sapId)
                     const salt = randomUUID()
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)

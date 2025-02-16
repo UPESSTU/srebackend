@@ -5,8 +5,64 @@ const Deck = require('../models/deck')
 const User = require("../models/user")
 const School = require('../models/school')
 
+const sendMail = require('../utils/mailer')
+
 const logger = require('../utils/logger')
 
+exports.addDeck = async (req, res) => {
+    try {
+
+        const {
+            examDateTime,
+            programName,
+            courseCode,
+            courseName,
+            school,
+            evaluator,
+            packetNumber,
+            roomNumber,
+            semester,
+            studentCount,
+            numberOfAnswerSheets,
+            rackNumber,
+        } = req.body
+
+        const deck = new Deck(
+            {
+                examDateTime: Math.floor(new Date(examDateTime).getTime() / 1000),
+                programName,
+                courseCode,
+                courseName,
+                school,
+                evaluator,
+                packetNumber,
+                roomNumber,
+                semester,
+                studentCount,
+                numberOfAnswerSheets,
+                rackNumber,
+                qrCodeString: `${programName}_${courseName}_${courseCode}_${rackNumber}_${roomNumber}_${semester}`
+            }
+        )
+
+        const response = await deck.save()
+
+        res.status(201).json({
+            success: true,
+            message: 'Deck Created',
+            dbRes: response
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+    }
+}
 
 exports.uploadDeck = async (req, res) => {
     try {
@@ -44,11 +100,14 @@ exports.uploadDeck = async (req, res) => {
                         studentCount: row.studentCount,
                         rackNumber: row.rackNumber,
                         numberOfAnswerSheets: row.numberOfAnswerSheets,
-                        roomNumber: row.roomNumber
+                        roomNumber: row.roomNumber,
+                        qrCodeString: `${row.programName}_${row.courseName}_${row.courseCode}_${row.rackNumber}_${row.roomNumber}_${row.semester}`
+
                     }
                     await Deck.create(deck)
                 } catch (err) {
                     logger.error(`Error: ${err.message || err.toString()}`)
+                    console.log(err)
                 }
             })
             .on('end', async () => {
@@ -62,6 +121,7 @@ exports.uploadDeck = async (req, res) => {
 
     } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
+        console.log(err)
         res.status(400).json({
             error: true,
             message: "An Unexpected Error Occurrred",
@@ -87,12 +147,12 @@ exports.getDecks = async (req, res) => {
             populate: [
                 {
                     path: 'evaluator',
-                    select: 'firstName lastName emailAddress sapId' 
+                    select: 'firstName lastName emailAddress sapId'
                 },
                 {
                     path: 'school'
                 }
-            ]        
+            ]
         }
 
         const response = await Deck.paginate({}, options)
@@ -179,41 +239,110 @@ exports.getDeckById = async (req, res) => {
     }
 }
 
-exports.pickUpDeck = async (req, res) => {
+exports.changeAnswerSheetCount = async (req, res) => {
     try {
 
         const {
-            deckId
+            qrCodeString,
+            numberOfAnswerSheets
         } = req.body
 
-        let status
+        const deck = await Deck.findOne({ qrCodeString: qrCodeString }).populate('evaluator')
 
-        if(req.auth.user.role === 'FACULTY')
-            status = 'PICKED_UP'
-        else if(req.auth.user.role === 'MODERATOR' || req.auth.user.role === 'ADMIN')
-            status = 'DROPPED'
-
-        if(!status) 
-            return res.status(403).json({
+        if (!deck)
+            return res.status(404).json({
                 error: true,
-                message: 'You are not allowed'
+                message: `Cannot Find Deck With ID:${qrCodeString}`
             })
+
+
+        const update = {
+            numberOfAnswerSheets: numberOfAnswerSheets
+        }
 
         const response = await Deck.findByIdAndUpdate(
             {
-                _id: deckId
+                _id: deck._id
             },
-            {
-                statusOfDeck: status
-            },
+            update,
             {
                 new: true
             }
         )
-        
+
+        sendMail({
+            to: `${deck.evaluator.emailAddress}`,
+            subject: `Deck Assigned For Evluation ${deck.qrCodeString}`,
+            html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Assigned Deck Notification</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: #f4f4f4;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .container {
+                        max-width: 600px;
+                        margin: 20px auto;
+                        background: #ffffff;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    }
+                    .header {
+                        background-color: #0073e6;
+                        color: white;
+                        padding: 15px;
+                        text-align: center;
+                        font-size: 20px;
+                        border-radius: 8px 8px 0 0;
+                    }
+                    .content {
+                        padding: 20px;
+                        font-size: 16px;
+                        color: #333;
+                        line-height: 1.5;
+                    }
+                    .footer {
+                        margin-top: 20px;
+                        font-size: 14px;
+                        color: #666;
+                        text-align: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">Assigned Deck of Sheets</div>
+                    <div class="content">
+                        <p>Dear ${deck.evaluator.firstName},</p>
+                        <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
+                        <p><strong>Course Name:</strong> [Deck Title]</p>
+                        <p><strong>Course Code:</strong> [Subject Name]</p>
+                        <p><strong>Room Number:</strong> [Subject Name]</p>
+                        <p><strong>Exam Date & Time:</strong> [Subject Name]</p>
+                        <p><strong>Total Students:</strong> [Subject Name]</p>
+                        <p><strong>Number Of Answer Sheets:</strong> [Subject Name]</p>
+
+                        <p>Please pick up the assigned deck from the SRE department.</p>
+                        <p>If you have any questions, feel free to reach out.</p>
+                        <p>Best Regards,<br>SRE Department UPES</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            `
+        })
+
         res.json({
             success: true,
-            message: `Status Updated To ${status}!`,
+            message: `Updated!`,
             dbRes: response
         })
 
@@ -227,5 +356,121 @@ exports.pickUpDeck = async (req, res) => {
             errorString: err.toString()
         })
 
+    }
+}
+
+exports.changeStatusOfDeck = async (req, res) => {
+    try {
+
+        const {
+            qrCodeString
+        } = req.body
+
+        const deck = await Deck.findOne({ qrCodeString: qrCodeString })
+
+        if (!deck)
+            return res.status(404).json({
+                error: true,
+                message: `Cannot Find Deck With ID:${qrCodeString}`
+            })
+
+
+        const update = {}
+
+        deck.statusOfDeck === 'PENDING' ? update.statusOfDeck = 'PICKED_UP' : null
+        deck.statusOfDeck === 'PICKED_UP' ? update.statusOfDeck = 'DROPPED' : null
+
+        update.statusOfDeck === 'PICKED_UP' ? update.pickUpTimestamp = Math.floor(new Date().getTime() / 1000) : null
+        update.statusOfDeck === 'DROPPED' ? update.dropTimestamp = Math.floor(new Date().getTime() / 1000) : null            
+
+        const response = await Deck.findByIdAndUpdate(
+            {
+                _id: deck._id
+            },
+            update,
+            {
+                new: true
+            }
+        )
+
+        res.json({
+            success: true,
+            message: `Updated!`,
+            dbRes: response
+        })
+
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
+    }
+}
+
+exports.manualReminderToDrop = async (req, res) => {
+    try{
+        const response = await this.sendReminderToDrop()
+        if(response.error) 
+            return res.status(400).json({
+                error: true,
+                message: "An Unexpected Error Occurrred",
+            })
+
+        res.json({
+            success: true,
+            message: 'Reminders Sent!'
+        })
+    }catch(err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+    }
+}
+
+exports.sendReminderToDrop = async () => {
+    try {
+
+        const currentTime = Math.floor(new Date().getTime() / 1000)
+
+        const sevenDaysAgo = currentTime - 7 * 24 * 60 * 60
+
+        const response = await Deck.find(
+            {
+                pickUpTimestamp: { $lt: sevenDaysAgo },
+                statusOfDeck: 'PICKED_UP'
+            }
+        ).populate('evaluator')
+        response.map((deck) => {
+            let html
+            if(deck)
+            sendMail(
+                {
+                    to: `${deck.evaluator.emailAddress}`,
+                    subject: `Reminder To Submit The Answer Sheets`,
+                    html: html
+                }
+            )
+        })
+
+        return {
+            success: true
+        }
+
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return {
+            error: true,
+            message: 'Unexpected Error Occured!'
+        }
     }
 }

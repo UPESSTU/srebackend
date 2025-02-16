@@ -9,7 +9,7 @@ module.exports = async ( { to, subject, html }) => {
           service: "gmail",
           auth: {
             user: "s.bhupender2401@gmail.com", 
-            pass: "",   
+            pass: "phywewhfomrlqnhr",   
           }
         })
     

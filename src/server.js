@@ -10,6 +10,7 @@ const
     mongoose = require('mongoose'),
     cors = require('cors'),
     dotenv = require('dotenv'),
+    cron = require('node-cron'),
     logger = require('./utils/logger')
 
 dotenv.config()
@@ -24,6 +25,8 @@ const
     userRoutes = require('./routes/user'),
     deckRoutes = require('./routes/deck'),
     schoolRoutes = require('./routes/school')
+
+const { sendReminderToDrop } = require('./controllers/deck')
 
 
 
@@ -51,6 +54,17 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
 app.use('/api/v1/deck', deckRoutes)
 app.use('/api/v1/school', schoolRoutes)
+
+cron.schedule("0 10 * * *", async () => {
+    try{
+        const reminders = await sendReminderToDrop()
+        if(reminders.success) 
+            logger.info(`Reminders Sent`)
+
+    }catch(err) {
+        logger.error(`Error: ${err.message}`)
+    }
+})
 
 
 const startServer = async () => {

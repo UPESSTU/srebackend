@@ -54,12 +54,26 @@ const deckSchema = new Schema({
     },
     numberOfAnswerSheets: {
         type: Number,
-        required: true
+        default: 0
     },
     statusOfDeck: {
         type: String,
         enum: ['PENDING', 'PICKED_UP', 'DROPPED'],
         default: 'PENDING'
+    },
+    qrCodeString: {
+        type: String,
+        unique: true,
+        required: true
+    },
+    cohort: {
+        type: String
+    },
+    pickUpTimestamp: {
+        type: Number
+    },
+    dropTimestamp: {
+        type: Number
     }
 }, { timestamps: true })
 
