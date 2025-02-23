@@ -48,7 +48,7 @@ router.get(
 )
 
 router.get(
-    '/id/:deckId', 
+    '/id/:qrString', 
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR']), 
     getDeckById

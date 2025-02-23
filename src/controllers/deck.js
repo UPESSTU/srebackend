@@ -210,10 +210,10 @@ exports.getDeckById = async (req, res) => {
     try {
 
         const {
-            deckId
+            qrString
         } = req.params
 
-        const response = await Deck.findOne({ _id: deckId })
+        const response = await Deck.findOne({ qrCodeString: qrString })
 
         if (!response)
             return res.status(404).json({
