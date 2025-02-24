@@ -40,7 +40,7 @@ const DATABASE = process.env.DATABASE //MongoDB Databse URI
 const app = express()
 
 app.use(cors({
-    origin: "http://localhost:5173", //Split The ORIGIN String into array
+    origin: process.env.ORIGIN.split(","), //Split The ORIGIN String into array
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'], // Methods Allowed
     allowedHeaders: ['Content-Type', 'Origin', 'X-Requested-With', 'Accept', 'x-client-key', 'x-client-token', 'x-client-secret', 'Authorization'], //Headers Allowed
     credentials: true, //Are Credentials Required

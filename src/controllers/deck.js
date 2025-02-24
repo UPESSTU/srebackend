@@ -87,7 +87,7 @@ exports.uploadDeck = async (req, res) => {
                             shortName: row.schoolName
                         }
                     )
-
+                    console.log(evaluator)
                     const deck = {
                         examDateTime: Math.floor(new Date(row.examDateTime).getTime() / 1000),
                         programName: row.programName,
@@ -104,6 +104,7 @@ exports.uploadDeck = async (req, res) => {
                         qrCodeString: `${row.programName}_${row.courseName}_${row.courseCode}_${row.rackNumber}_${row.roomNumber}_${row.semester}`
 
                     }
+                    console.log(deck)
                     await Deck.create(deck)
                 } catch (err) {
                     logger.error(`Error: ${err.message || err.toString()}`)
@@ -323,12 +324,12 @@ exports.changeAnswerSheetCount = async (req, res) => {
                     <div class="content">
                         <p>Dear ${deck.evaluator.firstName},</p>
                         <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
-                        <p><strong>Course Name:</strong> [Deck Title]</p>
-                        <p><strong>Course Code:</strong> [Subject Name]</p>
-                        <p><strong>Room Number:</strong> [Subject Name]</p>
-                        <p><strong>Exam Date & Time:</strong> [Subject Name]</p>
-                        <p><strong>Total Students:</strong> [Subject Name]</p>
-                        <p><strong>Number Of Answer Sheets:</strong> [Subject Name]</p>
+                        <p><strong>Course Name:</strong> ${deck.courseName}</p>
+                        <p><strong>Course Code:</strong> ${deck.courseCode}</p>
+                        <p><strong>Room Number:</strong> ${deck.roomNumber}</p>
+                        <p><strong>Exam Date & Time:</strong> ${deck.examDateTime}</p>
+                        <p><strong>Total Students:</strong> ${deck.studentCount}</p>
+                        <p><strong>Number Of Answer Sheets:</strong> ${deck.numberOfAnswerSheets}</p>
 
                         <p>Please pick up the assigned deck from the SRE department.</p>
                         <p>If you have any questions, feel free to reach out.</p>
@@ -456,7 +457,70 @@ exports.sendReminderToDrop = async () => {
                 {
                     to: `${deck.evaluator.emailAddress}`,
                     subject: `Reminder To Submit The Answer Sheets`,
-                    html: html
+                    html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Assigned Deck Notification</title>
+                        <style>
+                            body {
+                                font-family: Arial, sans-serif;
+                                background-color: #f4f4f4;
+                                margin: 0;
+                                padding: 0;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 20px auto;
+                                background: #ffffff;
+                                padding: 20px;
+                                border-radius: 8px;
+                                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                            }
+                            .header {
+                                background-color: #0073e6;
+                                color: white;
+                                padding: 15px;
+                                text-align: center;
+                                font-size: 20px;
+                                border-radius: 8px 8px 0 0;
+                            }
+                            .content {
+                                padding: 20px;
+                                font-size: 16px;
+                                color: #333;
+                                line-height: 1.5;
+                            }
+                            .footer {
+                                margin-top: 20px;
+                                font-size: 14px;
+                                color: #666;
+                                text-align: center;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header">Assigned Deck of Sheets</div>
+                            <div class="content">
+                                <p>Dear ${deck.evaluator.firstName},</p>
+                                <p>Reminder to submit the answer sheets. Please find the details below:</p>
+                                <p><strong>Course Name:</strong> ${deck.courseName}</p>
+                                <p><strong>Course Code:</strong> ${deck.courseCode}</p>
+                                <p><strong>Room Number:</strong> ${deck.roomNumber}</p>
+                                <p><strong>Exam Date & Time:</strong> ${deck.examDateTime}</p>
+                                <p><strong>Total Students:</strong> ${deck.studentCount}</p>
+                                <p><strong>Number Of Answer Sheets:</strong> ${deck.numberOfAnswerSheets}</p>
+        
+                                <p>If you have any questions, feel free to reach out.</p>
+                                <p>Best Regards,<br>SRE Department UPES</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    `
                 }
             )
         })
