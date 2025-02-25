@@ -1,0 +1,6 @@
+examDateTime,roomNumber,programName,semester,courseCode,courseName,schoolName,evaluatorEmail,studentCount,packetNumber,rackNumber
+10-03-2025 10:00 AM,11013,MSc_Chem,3,CHEM8048,Introduction to Computational Chemistry,SOCS,akhilesh.kumar@ddn.upes.ac.in,1,SOAE-E-1,SOAE-001
+11-03-2025 10:00 AM,10201,BTech_Eng_Civil,3,CIVL2036,Building Materials and Concrete Technology,SOCS,akhilesh.kumar@ddn.upes.ac.in,10,SOAE-M-13,SOAE-029
+12-03-2025 10:00 AM,10202,BTech_Eng_Civil,3,CIVL2036,Building Materials and Concrete Technology,SOCS,akhilesh.kumar@ddn.upes.ac.in,6,SOAE-M-13,SOAE-030
+13-03-2025 10:00 AM,1004,BTech_Eng_ASE,7,ASEG4018,Vibration and Aeroelasticity,SOCS,akhilesh.kumar@ddn.upes.ac.in,10,SOAE-E-1,SOAE-043
+14-03-2025 10:00 AM,10101,BTech_Eng_ASE,7,ASEG4018,Vibration and Aeroelasticity,SOCS,akhilesh.kumar@ddn.upes.ac.in,32,SOAE-E-1,SOAE-044

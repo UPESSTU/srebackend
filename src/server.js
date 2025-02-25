@@ -12,7 +12,7 @@ const
     dotenv = require('dotenv'),
     cron = require('node-cron'),
     logger = require('./utils/logger')
-
+    mailer = require('./utils/mailer')
 dotenv.config()
 
 
@@ -24,10 +24,10 @@ const
     authRoutes = require('./routes/auth'),
     userRoutes = require('./routes/user'),
     deckRoutes = require('./routes/deck'),
-    schoolRoutes = require('./routes/school')
+    schoolRoutes = require('./routes/school'),
+    smtpRoutes = require('./routes/smtp')
 
 const { sendReminderToDrop } = require('./controllers/deck')
-
 
 
 /*
@@ -54,17 +54,19 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
 app.use('/api/v1/deck', deckRoutes)
 app.use('/api/v1/school', schoolRoutes)
+app.use('/api/v1/smtp', smtpRoutes)
 
-cron.schedule("0 10 * * *", async () => {
-    try{
-        const reminders = await sendReminderToDrop()
-        if(reminders.success) 
-            logger.info(`Reminders Sent`)
 
-    }catch(err) {
-        logger.error(`Error: ${err.message}`)
-    }
-})
+// cron.schedule("0 10 * * *", async () => {
+//     try{
+//         const reminders = await sendReminderToDrop()
+//         if(reminders.success) 
+//             logger.info(`Reminders Sent`)
+
+//     }catch(err) {
+//         logger.error(`Error: ${err.message}`)
+//     }
+// })
 
 
 const startServer = async () => {

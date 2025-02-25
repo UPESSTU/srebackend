@@ -6,7 +6,7 @@ const mongoosePaginate = require('mongoose-paginate-v2')
 
 const deckSchema = new Schema({
 
-    examDateTime: {
+    examDate: {
         type: Number,
         requried: true
     },
@@ -33,7 +33,7 @@ const deckSchema = new Schema({
         required: true
     },
     packetNumber: {
-        type: Number,
+        type: String,
         required: true
     },
     roomNumber: {
@@ -74,6 +74,10 @@ const deckSchema = new Schema({
     },
     dropTimestamp: {
         type: Number
+    },
+    shiftOfExam: {
+        type: String,
+        enums: ['MORNING', 'EVENING']
     }
 }, { timestamps: true })
 

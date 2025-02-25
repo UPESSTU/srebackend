@@ -1,20 +1,29 @@
 const 
     nodemailer = require('nodemailer'),
-    logger = require('./logger')
+    logger = require('./logger'),
+    SMTP = require('../models/smtp')
 
 
 module.exports = async ( { to, subject, html }) => {
     try {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: "s.bhupender2401@gmail.com", 
-            pass: "phywewhfomrlqnhr",   
-          }
-        })
+
+        const smtp = await SMTP.find()
+      console.log(smtp)
+        const emailConfiguration = {
+            host: smtp[0].smtpHost,
+            port: smtp[0].smtpPort,
+            secure: smtp[0].smtpSecure,
+            auth: {
+              user: smtp[0].emailAddress,
+              pass: smtp[0].emailPassword,
+            }
+        }
+        console.log(emailConfiguration)
+
+        const transporter = nodemailer.createTransport(emailConfiguration)
     
         const mail = {
-            from: `"DataNest" <s.bhupender2401@gmail.com>`,
+            from: `"No Reply SRE" <${smtp.emailAddress}>`,
             to: to,
             subject: subject,
             html: html

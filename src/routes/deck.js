@@ -14,7 +14,8 @@ const {
     addDeck,
     changeStatusOfDeck,
     changeAnswerSheetCount,
-    manualReminderToDrop
+    manualReminderToDrop,
+    sendAssignmentMail
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -76,6 +77,12 @@ router.post(
     manualReminderToDrop
 )
 
+router.post(
+    '/assignment-email',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    sendAssignmentMail
+)
 
 
 module.exports = router

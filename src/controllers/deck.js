@@ -87,9 +87,9 @@ exports.uploadDeck = async (req, res) => {
                             shortName: row.schoolName
                         }
                     )
-                    console.log(evaluator)
+                   
                     const deck = {
-                        examDateTime: Math.floor(new Date(row.examDateTime).getTime() / 1000),
+                        examDate: Math.floor(new Date(row.examDate).getTime() / 1000),
                         programName: row.programName,
                         courseCode: row.courseCode,
                         courseName: row.courseName,
@@ -101,7 +101,10 @@ exports.uploadDeck = async (req, res) => {
                         rackNumber: row.rackNumber,
                         numberOfAnswerSheets: row.numberOfAnswerSheets,
                         roomNumber: row.roomNumber,
-                        qrCodeString: `${row.programName}_${row.courseName}_${row.courseCode}_${row.rackNumber}_${row.roomNumber}_${row.semester}`
+                        shiftOfExam: row.shift === 'M' ? 'MORNING' : 'EVENING',
+                        qrCodeString: `${row.schoolName}_${row.examDate}_${row.shift}_${row.courseCode}_${row.roomNumber}_${row.programName}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row.studentCount}`
+                        // SOAE_02.12.2024_E_CHEM8048_11013_MSc_Chem_Jimmy Mangalam_St.Count_1
+
 
                     }
                     console.log(deck)
@@ -271,76 +274,7 @@ exports.changeAnswerSheetCount = async (req, res) => {
             }
         )
 
-        sendMail({
-            to: `${deck.evaluator.emailAddress}`,
-            subject: `Deck Assigned For Evluation ${deck.qrCodeString}`,
-            html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Assigned Deck Notification</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        background-color: #f4f4f4;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    .container {
-                        max-width: 600px;
-                        margin: 20px auto;
-                        background: #ffffff;
-                        padding: 20px;
-                        border-radius: 8px;
-                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                    }
-                    .header {
-                        background-color: #0073e6;
-                        color: white;
-                        padding: 15px;
-                        text-align: center;
-                        font-size: 20px;
-                        border-radius: 8px 8px 0 0;
-                    }
-                    .content {
-                        padding: 20px;
-                        font-size: 16px;
-                        color: #333;
-                        line-height: 1.5;
-                    }
-                    .footer {
-                        margin-top: 20px;
-                        font-size: 14px;
-                        color: #666;
-                        text-align: center;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">Assigned Deck of Sheets</div>
-                    <div class="content">
-                        <p>Dear ${deck.evaluator.firstName},</p>
-                        <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
-                        <p><strong>Course Name:</strong> ${deck.courseName}</p>
-                        <p><strong>Course Code:</strong> ${deck.courseCode}</p>
-                        <p><strong>Room Number:</strong> ${deck.roomNumber}</p>
-                        <p><strong>Exam Date & Time:</strong> ${deck.examDateTime}</p>
-                        <p><strong>Total Students:</strong> ${deck.studentCount}</p>
-                        <p><strong>Number Of Answer Sheets:</strong> ${deck.numberOfAnswerSheets}</p>
-
-                        <p>Please pick up the assigned deck from the SRE department.</p>
-                        <p>If you have any questions, feel free to reach out.</p>
-                        <p>Best Regards,<br>SRE Department UPES</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            `
-        })
-
+        
         res.json({
             success: true,
             message: `Updated!`,
@@ -503,7 +437,7 @@ exports.sendReminderToDrop = async () => {
                     </head>
                     <body>
                         <div class="container">
-                            <div class="header">Assigned Deck of Sheets</div>
+                            <div class="header">Reminder To Submit Answer Sheets</div>
                             <div class="content">
                                 <p>Dear ${deck.evaluator.firstName},</p>
                                 <p>Reminder to submit the answer sheets. Please find the details below:</p>
@@ -536,5 +470,105 @@ exports.sendReminderToDrop = async () => {
             error: true,
             message: 'Unexpected Error Occured!'
         }
+    }
+}
+
+exports.sendAssignmentMail = async (req, res) => {
+    try{
+
+        const response = await Deck.find({
+            numberOfAnswerSheets: {
+                $gt: 0
+            }
+        }).populate('evaluator')
+        
+
+        response.map((data) => {
+            sendMail({
+                to: `${data.evaluator.emailAddress}`,
+                subject: `Deck Assigned For Evluation ${data.qrCodeString}`,
+                html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Assigned Deck Notification</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .container {
+                            max-width: 600px;
+                            margin: 20px auto;
+                            background: #ffffff;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        }
+                        .header {
+                            background-color: #0073e6;
+                            color: white;
+                            padding: 15px;
+                            text-align: center;
+                            font-size: 20px;
+                            border-radius: 8px 8px 0 0;
+                        }
+                        .content {
+                            padding: 20px;
+                            font-size: 16px;
+                            color: #333;
+                            line-height: 1.5;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            font-size: 14px;
+                            color: #666;
+                            text-align: center;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">Assigned Deck of Sheets</div>
+                        <div class="content">
+                            <p>Dear ${deck.evaluator.firstName},</p>
+                            <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
+                            <p><strong>Course Name:</strong> ${data.courseName}</p>
+                            <p><strong>Course Code:</strong> ${data.courseCode}</p>
+                            <p><strong>Room Number:</strong> ${data.roomNumber}</p>
+                            <p><strong>Exam Date & Time:</strong> ${data.examDateTime}</p>
+                            <p><strong>Total Students:</strong> ${data.studentCount}</p>
+                            <p><strong>Number Of Answer Sheets:</strong> ${data.numberOfAnswerSheets}</p>
+    
+                            <p>Please pick up the assigned deck from the SRE department.</p>
+                            <p>If you have any questions, feel free to reach out.</p>
+                            <p>Best Regards,<br>SRE Department UPES</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                `
+            })
+    
+        })
+        
+
+        res.status(202).json({
+            success: true,
+            message: "Mail Request Sent!"
+        })
+      
+    }catch(err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
     }
 }
