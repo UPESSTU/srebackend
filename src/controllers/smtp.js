@@ -31,23 +31,29 @@ exports.addSMTP = async (req, res) => {
             emailPassword,
             smtpPort,
             smtpHost,
-            smtpSecure
         } = req.body
 
-        const smtp = new SMTP(
+        
+        const response = await SMTP.findOneAndUpdate(
+            {
+                smtpCount: 'ONE'
+            },
             {
                 emailAddress,
                 emailPassword,
                 smtpHost,
                 smtpPort,
-                smtpSecure
+                smtpSecure : false
+
+            },
+            {
+                new: true,
+                upsert: true
             }
         )
-        
-        const response = await smtp.save()
 
         res.status(201).json({
-            message: 'SMTP Created',
+            message: 'SMTP Created/Updated',
             success: true,
             dbRes: response
         })

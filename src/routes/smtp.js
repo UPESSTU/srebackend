@@ -13,7 +13,7 @@ router.get(
 )
 
 router.post(
-    '/new', 
+    '/create-update', 
     authenticate,
     authorizeRoles(['ADMIN']),
     addSMTP

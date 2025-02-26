@@ -22,6 +22,11 @@ const smtpSchema = Schema({
     smtpSecure: {
         type: Boolean,
         required: true
+    },
+    smtpCount: {
+        type: String,
+        enum: ['ONE'],
+        unique: true
     }
 }, { timestamps: true })
 
