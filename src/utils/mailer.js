@@ -8,7 +8,6 @@ module.exports = async ( { to, subject, html }) => {
     try {
 
         const smtp = await SMTP.find()
-      console.log(smtp)
         const emailConfiguration = {
             host: smtp[0].smtpHost,
             port: smtp[0].smtpPort,
@@ -18,7 +17,6 @@ module.exports = async ( { to, subject, html }) => {
               pass: smtp[0].emailPassword,
             }
         }
-        console.log(emailConfiguration)
 
         const transporter = nodemailer.createTransport(emailConfiguration)
     

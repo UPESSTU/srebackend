@@ -170,3 +170,27 @@ exports.changePassword = async (req, res) => {
         })
     }
 }
+
+exports.deleteFaculty = async (req, res) => {
+    try {
+      
+
+        const response = await User.deleteMany({ role: "FACULTY" })
+        
+       
+        res.json({
+            success: true,
+            message: `Users Deleted`,
+            dbRes: response
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}

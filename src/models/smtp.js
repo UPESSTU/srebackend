@@ -23,7 +23,8 @@ const smtpSchema = Schema({
         type: Boolean,
         required: true
     }
-})
+}, { timestamps: true })
 
 const SMTP = model('SMTP', smtpSchema)
+
 module.exports = SMTP

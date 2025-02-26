@@ -24,8 +24,8 @@ const
     authRoutes = require('./routes/auth'),
     userRoutes = require('./routes/user'),
     deckRoutes = require('./routes/deck'),
-    schoolRoutes = require('./routes/school'),
-    smtpRoutes = require('./routes/smtp')
+    smtpRoutes = require('./routes/smtp'),
+    emailTemplateRoutes = require('./routes/emailTemplate')
 
 const { sendReminderToDrop } = require('./controllers/deck')
 
@@ -53,20 +53,21 @@ app.get('/ping', (req, res) => res.json({ message: "Pong!"}))
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
 app.use('/api/v1/deck', deckRoutes)
-app.use('/api/v1/school', schoolRoutes)
 app.use('/api/v1/smtp', smtpRoutes)
+app.use('/api/v1/emailtemplate', emailTemplateRoutes)
 
 
-// cron.schedule("0 10 * * *", async () => {
-//     try{
-//         const reminders = await sendReminderToDrop()
-//         if(reminders.success) 
-//             logger.info(`Reminders Sent`)
 
-//     }catch(err) {
-//         logger.error(`Error: ${err.message}`)
-//     }
-// })
+cron.schedule("0 10 * * *", async () => {
+    try{
+        const reminders = await sendReminderToDrop()
+        if(reminders.success) 
+            logger.info(`Reminders Sent`)
+
+    }catch(err) {
+        logger.error(`Error: ${err.message}`)
+    }
+})
 
 
 const startServer = async () => {

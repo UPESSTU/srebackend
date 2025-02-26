@@ -1,13 +1,14 @@
 const csvParser = require("csv-parser")
 const fs = require('fs')
+const Handlebars = require('handlebars')
 
 const Deck = require('../models/deck')
 const User = require("../models/user")
-const School = require('../models/school')
 
 const sendMail = require('../utils/mailer')
 
 const logger = require('../utils/logger')
+const { getTemplate } = require("./emailTemplate")
 
 exports.addDeck = async (req, res) => {
     try {
@@ -82,18 +83,14 @@ exports.uploadDeck = async (req, res) => {
                             emailAddress: row['Evaluator Email']
                         }
                     )
-                    const school = await School.findOne(
-                        {
-                            shortName: row['School']
-                        }
-                    )
+                  
                    
                     const deck = {
                         examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
                         programName: row['Program Name'],
                         courseCode: row['Course Code'],
                         courseName: row['Course'],
-                        school: school._id,
+                        school: row['School'],
                         evaluator: evaluator._id,
                         packetNumber: row['Packet No.'],
                         semester: row['Sem'],
@@ -488,82 +485,45 @@ exports.sendReminderToDrop = async () => {
         const response = await Deck.find(
             {
                 pickUpTimestamp: { $lt: sevenDaysAgo },
-                statusOfDeck: 'PICKED_UP'
+                statusOfDeck: 'PICKED_UP',
+                numberOfAnswerSheets: { $gt: 0 }
             }
         ).populate('evaluator')
-        response.map((deck) => {
-            let html
-            if(deck)
-            sendMail(
-                {
-                    to: `${deck.evaluator.emailAddress}`,
-                    subject: `Reminder To Submit The Answer Sheets`,
-                    html: `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Assigned Deck Notification</title>
-                        <style>
-                            body {
-                                font-family: Arial, sans-serif;
-                                background-color: #f4f4f4;
-                                margin: 0;
-                                padding: 0;
-                            }
-                            .container {
-                                max-width: 600px;
-                                margin: 20px auto;
-                                background: #ffffff;
-                                padding: 20px;
-                                border-radius: 8px;
-                                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                            }
-                            .header {
-                                background-color: #0073e6;
-                                color: white;
-                                padding: 15px;
-                                text-align: center;
-                                font-size: 20px;
-                                border-radius: 8px 8px 0 0;
-                            }
-                            .content {
-                                padding: 20px;
-                                font-size: 16px;
-                                color: #333;
-                                line-height: 1.5;
-                            }
-                            .footer {
-                                margin-top: 20px;
-                                font-size: 14px;
-                                color: #666;
-                                text-align: center;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="container">
-                            <div class="header">Reminder To Submit Answer Sheets</div>
-                            <div class="content">
-                                <p>Dear ${deck.evaluator.firstName},</p>
-                                <p>Reminder to submit the answer sheets. Please find the details below:</p>
-                                <p><strong>Course Name:</strong> ${deck.courseName}</p>
-                                <p><strong>Course Code:</strong> ${deck.courseCode}</p>
-                                <p><strong>Room Number:</strong> ${deck.roomNumber}</p>
-                                <p><strong>Exam Date & Time:</strong> ${deck.examDateTime}</p>
-                                <p><strong>Total Students:</strong> ${deck.studentCount}</p>
-                                <p><strong>Number Of Answer Sheets:</strong> ${deck.numberOfAnswerSheets}</p>
         
-                                <p>If you have any questions, feel free to reach out.</p>
-                                <p>Best Regards,<br>SRE Department UPES</p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                    `
+        response.map(async (data) => {
+            try {
+                const emailTemplate = await getTemplate('REMINDER')
+                if(!emailTemplate)
+                    return logger.error('Cannot Find Email Template')
+
+                const emailData = {
+                    evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
+                    examDate: new Date(data.examDate).toDateString(),
+                    programName: data.programName,
+                    courseCode: data.courseCode,
+                    courseName: data.courseName,
+                    totalStudent: data.studentCount,
+                    numberOfPresentStudent: data.numberOfAnswerSheets,
+                    numberOfAnswerSheets: data.numberOfAnswerSheets,
+                    examShift: data.shiftOfExam,
+                    qrCodeString: data.qrCodeString
                 }
-            )
+                
+                const template = Handlebars.compile(emailTemplate.html)
+                const subject = Handlebars.compile(emailTemplate.subject)
+
+                const emailTemplateWithData = template(emailData)
+                const emailSubjectWithData = subject(emailData)
+
+                sendMail({
+                    to: `${data.evaluator.emailAddress}`,
+                    subject: emailSubjectWithData,
+                    html: emailTemplateWithData
+                })
+                }catch(err) {
+                    logger.error(`Error: ${err.message || err.toString()}`)
+                }
+        
         })
 
         return {
@@ -587,78 +547,40 @@ exports.sendAssignmentMail = async (req, res) => {
             numberOfAnswerSheets: { $gt: 0 }
         }).populate('evaluator')
         
-        console.log(response)
-        response.map((data) => {
-            sendMail({
-                to: `${data.evaluator.emailAddress}`,
-                subject: `Deck Assigned For Evluation ${data.qrCodeString}`,
-                html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Assigned Deck Notification</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            background-color: #f4f4f4;
-                            margin: 0;
-                            padding: 0;
-                        }
-                        .container {
-                            max-width: 600px;
-                            margin: 20px auto;
-                            background: #ffffff;
-                            padding: 20px;
-                            border-radius: 8px;
-                            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                        }
-                        .header {
-                            background-color: #0073e6;
-                            color: white;
-                            padding: 15px;
-                            text-align: center;
-                            font-size: 20px;
-                            border-radius: 8px 8px 0 0;
-                        }
-                        .content {
-                            padding: 20px;
-                            font-size: 16px;
-                            color: #333;
-                            line-height: 1.5;
-                        }
-                        .footer {
-                            margin-top: 20px;
-                            font-size: 14px;
-                            color: #666;
-                            text-align: center;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="header">Assigned Deck of Sheets</div>
-                        <div class="content">
-                            <p>Dear ${data.evaluator.firstName},</p>
-                            <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
-                            <p><strong>Course Name:</strong> ${data.courseName}</p>
-                            <p><strong>Course Code:</strong> ${data.courseCode}</p>
-                            <p><strong>Room Number:</strong> ${data.roomNumber}</p>
-                            <p><strong>Exam Date & Time:</strong> ${data.examDateTime}</p>
-                            <p><strong>Total Students:</strong> ${data.studentCount}</p>
-                            <p><strong>Number Of Answer Sheets:</strong> ${data.numberOfAnswerSheets}</p>
-    
-                            <p>Please pick up the assigned deck from the SRE department.</p>
-                            <p>If you have any questions, feel free to reach out.</p>
-                            <p>Best Regards,<br>SRE Department UPES</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                `
-            })
-    
+        response.map(async (data) => {
+            try {
+                const emailTemplate = await getTemplate('ASSIGNED')
+                if(!emailTemplate)
+                    return logger.error('Cannot Find Email Template')
+
+                const emailData = {
+                    evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
+                    examDate: new Date(data.examDate).toDateString(),
+                    programName: data.programName,
+                    courseCode: data.courseCode,
+                    courseName: data.courseName,
+                    totalStudent: data.studentCount,
+                    numberOfPresentStudent: data.numberOfAnswerSheets,
+                    numberOfAnswerSheets: data.numberOfAnswerSheets,
+                    examShift: data.shiftOfExam,
+                    qrCodeString: data.qrCodeString
+                }
+                
+                const template = Handlebars.compile(emailTemplate.html)
+                const subject = Handlebars.compile(emailTemplate.subject)
+
+                const emailTemplateWithData = template(emailData)
+                const emailSubjectWithData = subject(emailData)
+
+                sendMail({
+                    to: `${data.evaluator.emailAddress}`,
+                    subject: emailSubjectWithData,
+                    html: emailTemplateWithData
+                })
+                }catch(err) {
+                    logger.error(`Error: ${err.message || err.toString()}`)
+                }
+        
         })
         
 

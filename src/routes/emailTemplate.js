@@ -1,31 +1,29 @@
 const express = require('express')
 
 const authenticate = require('../middlewares/authenticate')
-const { getSchools, getSchoolById, addSchool } = require('../controllers/school')
 const authorizeRoles = require('../middlewares/permission')
-
+const { getTemplates, getTemplateById, addTemplate } = require('../controllers/emailTemplate')
 const router = express.Router()
 
 router.get(
-    '/all', 
+    '/', 
     authenticate, 
     authorizeRoles(['ADMIN']),
-    getSchools
-)
-
-router.get(
-    '/id/:schoolId', 
-    authenticate, 
-    authorizeRoles(['ADMIN']),
-    getSchoolById
+    getTemplates
 )
 
 router.post(
-    '/create', 
+    '/create-update', 
     authenticate,
     authorizeRoles(['ADMIN']),
-    addSchool
+    addTemplate
 )
 
+router.get(
+    '/id/:templateId',
+    authenticate,
+    authorizeRoles(['ADMIN']),
+    getTemplateById
+)
 
 module.exports = router
