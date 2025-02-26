@@ -3,3 +3,4 @@ logs/
 .env
 yarn.lock
 src/uploads
+*.pdf

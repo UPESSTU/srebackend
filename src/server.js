@@ -5,7 +5,7 @@
 /*
     Node Packages Used
 */
-const 
+const
     express = require('express'),
     mongoose = require('mongoose'),
     cors = require('cors'),
@@ -13,6 +13,7 @@ const
     cron = require('node-cron'),
     logger = require('./utils/logger')
     mailer = require('./utils/mailer')
+
 dotenv.config()
 
 
@@ -20,7 +21,7 @@ dotenv.config()
     Import Routes
 */
 
-const 
+const
     authRoutes = require('./routes/auth'),
     userRoutes = require('./routes/user'),
     deckRoutes = require('./routes/deck'),
@@ -47,8 +48,9 @@ app.use(cors({
 }))
 
 app.use(express.json())
+app.use(express.static(path.join(__dirname, 'public')))
 
-app.get('/ping', (req, res) => res.json({ message: "Pong!"}))
+app.get('/ping', (req, res) => res.json({ message: "Pong!" }))
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
@@ -59,12 +61,12 @@ app.use('/api/v1/emailtemplate', emailTemplateRoutes)
 
 
 cron.schedule("0 10 * * *", async () => {
-    try{
+    try {
         const reminders = await sendReminderToDrop()
-        if(reminders.success) 
+        if (reminders.success)
             logger.info(`Reminders Sent`)
 
-    }catch(err) {
+    } catch (err) {
         logger.error(`Error: ${err.message}`)
     }
 })
@@ -73,17 +75,17 @@ cron.schedule("0 10 * * *", async () => {
 const startServer = async () => {
     try {
         mongoose.connect(DATABASE)
-        .then(db => {
-            app.listen(PORT, () => {
-                logger.info(`Server Running At PORT: ${PORT}`)
+            .then(db => {
+                app.listen(PORT, () => {
+                    logger.info(`Server Running At PORT: ${PORT}`)
+                })
+                logger.info(`Database Connected`)
             })
-            logger.info(`Database Connected`)
-        })
-        .catch(err => {
-            logger.error(`Error: ${err.message || err.toString()}`)
-            process.exit(1)
-        })
-    }catch(err) {
+            .catch(err => {
+                logger.error(`Error: ${err.message || err.toString()}`)
+                process.exit(1)
+            })
+    } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
         process.exit(1)
     }

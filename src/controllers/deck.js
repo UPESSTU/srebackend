@@ -1,14 +1,114 @@
 const csvParser = require("csv-parser")
-const fs = require('fs')
 const Handlebars = require('handlebars')
-
 const Deck = require('../models/deck')
 const User = require("../models/user")
+const QRCode = require('qrcode')
+const exphbs = require("express-handlebars")
+const fs = require("fs-extra")
+const path = require("path")
+const puppeteer = require('puppeteer')
 
-const sendMail = require('../utils/mailer')
-
-const logger = require('../utils/logger')
 const { getTemplate } = require("./emailTemplate")
+const sendMail = require('../utils/mailer')
+const logger = require('../utils/logger')
+
+const renderTemplate = async (templateName, data) => {
+    const hbs = exphbs.create()
+    const templatePath = path.join(__dirname, "views", `${templateName}.hbs`)
+    const templateContent = await fs.readFile(templatePath, "utf8")
+    const compiledTemplate = hbs.handlebars.compile(templateContent)
+    return compiledTemplate(data)
+}
+
+exports.generatePampletsPdf = async (req, res) => {
+    try {
+        const response = await Deck.find().populate('evaluator').lean()
+        const updatedResponse = await Promise.all(
+            response.map(async (item) => {
+                const qrCodeData = item.qrCodeString
+                const qrCodeUrl = await QRCode.toDataURL(qrCodeData)
+                const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                })               
+                const examTime = item.shiftOfExam === 'MORNING' ? '10:00AM' : '2:00PM'
+                return {
+                    ...item,
+                    qrCode: qrCodeUrl,
+                    examDate: examDate,
+                    examTime: examTime
+                }
+            })
+        )
+        const data = {
+            data: updatedResponse,
+            logo: 'http://localhost:8000/upes.svg',
+        }
+        const html = await renderTemplate("pdf", data)
+
+        const browser = await puppeteer.launch()
+
+        const page = await browser.newPage()
+        await page.setContent(html, {
+            waitUntil: 'networkidle2'
+        })
+        await page.pdf({
+            path: path.join(__dirname, '..', 'public', 'pamplets.pdf')
+        })
+
+        await browser.close()
+        res.sendFile(path.join(__dirname, '..', 'public', 'pamplets.pdf'))
+        
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+    }
+}
+
+exports.generatePamplets = async (req, res) => {
+    try {
+        const response = await Deck.find().populate('evaluator').lean()
+        const updatedResponse = await Promise.all(
+            response.map(async (item) => {
+                const qrCodeData = item.qrCodeString
+                const qrCodeUrl = await QRCode.toDataURL(qrCodeData)
+                const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                })
+                const examTime = item.shiftOfExam === 'MORNING' ? '10:00AM' : '2:00PM'
+                return {
+                    ...item,
+                    qrCode: qrCodeUrl,
+                    examDate: examDate,
+                    examTime: examTime
+                }
+            })
+        )
+        const data = {
+            data: updatedResponse,
+            logo: 'http://localhost:8000/upes.svg',
+        }
+        const html = await renderTemplate("pdf", data)
+
+        res.send(html)
+    } catch (error) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+    }
+}
 
 exports.addDeck = async (req, res) => {
     try {
@@ -83,8 +183,8 @@ exports.uploadDeck = async (req, res) => {
                             emailAddress: row['Evaluator Email']
                         }
                     )
-                  
-                   
+
+
                     const deck = {
                         examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
                         programName: row['Program Name'],
@@ -160,7 +260,7 @@ exports.getDecks = async (req, res) => {
 
         let query = {}
 
-        if(search) {
+        if (search) {
             query = {
                 $or: [
                     {
@@ -317,7 +417,7 @@ exports.changeAnswerSheetCount = async (req, res) => {
             }
         )
 
-        
+
         res.json({
             success: true,
             message: `Updated!`,
@@ -374,7 +474,7 @@ exports.updateDeck = async (req, res) => {
     }
 }
 
-exports.deleteAllDecks =  async (req, res) => {
+exports.deleteAllDecks = async (req, res) => {
     try {
 
         const response = await Deck.deleteMany({})
@@ -420,7 +520,7 @@ exports.changeStatusOfDeck = async (req, res) => {
         action === 'drop' ? update.statusOfDeck = 'DROPPED' : null
 
         update.statusOfDeck === 'PICKED_UP' ? update.pickUpTimestamp = Math.floor(new Date().getTime() / 1000) : null
-        update.statusOfDeck === 'DROPPED' ? update.dropTimestamp = Math.floor(new Date().getTime() / 1000) : null            
+        update.statusOfDeck === 'DROPPED' ? update.dropTimestamp = Math.floor(new Date().getTime() / 1000) : null
 
         const response = await Deck.findByIdAndUpdate(
             {
@@ -452,9 +552,9 @@ exports.changeStatusOfDeck = async (req, res) => {
 }
 
 exports.manualReminderToDrop = async (req, res) => {
-    try{
+    try {
         const response = await this.sendReminderToDrop()
-        if(response.error) 
+        if (response.error)
             return res.status(400).json({
                 error: true,
                 message: "An Unexpected Error Occurrred",
@@ -464,7 +564,7 @@ exports.manualReminderToDrop = async (req, res) => {
             success: true,
             message: 'Reminders Sent!'
         })
-    }catch(err) {
+    } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
         res.status(400).json({
             error: true,
@@ -474,6 +574,7 @@ exports.manualReminderToDrop = async (req, res) => {
         })
     }
 }
+
 
 exports.sendReminderToDrop = async () => {
     try {
@@ -489,16 +590,16 @@ exports.sendReminderToDrop = async () => {
                 numberOfAnswerSheets: { $gt: 0 }
             }
         ).populate('evaluator')
-        
+
         response.map(async (data) => {
             try {
                 const emailTemplate = await getTemplate('REMINDER')
-                if(!emailTemplate)
+                if (!emailTemplate)
                     return logger.error('Cannot Find Email Template')
 
                 const emailData = {
                     evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
-                    examDate: new Date(data.examDate*1000).toLocaleDateString(),
+                    examDate: new Date(data.examDate * 1000).toLocaleDateString(),
                     programName: data.programName,
                     courseCode: data.courseCode,
                     courseName: data.courseName,
@@ -508,7 +609,7 @@ exports.sendReminderToDrop = async () => {
                     examShift: data.shiftOfExam,
                     qrCodeString: data.qrCodeString
                 }
-                
+
                 const template = Handlebars.compile(emailTemplate.html)
                 const subject = Handlebars.compile(emailTemplate.subject)
 
@@ -520,10 +621,10 @@ exports.sendReminderToDrop = async () => {
                     subject: emailSubjectWithData,
                     html: emailTemplateWithData
                 })
-                }catch(err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                }
-        
+            } catch (err) {
+                logger.error(`Error: ${err.message || err.toString()}`)
+            }
+
         })
 
         return {
@@ -541,21 +642,21 @@ exports.sendReminderToDrop = async () => {
 }
 
 exports.sendAssignmentMail = async (req, res) => {
-    try{
-        
+    try {
+
         const response = await Deck.find({
             numberOfAnswerSheets: { $gt: 0 }
         }).populate('evaluator')
-        
+
         response.map(async (data) => {
             try {
                 const emailTemplate = await getTemplate('ASSIGNED')
-                if(!emailTemplate)
+                if (!emailTemplate)
                     return logger.error('Cannot Find Email Template')
 
                 const emailData = {
                     evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
-                    examDate: new Date(data.examDate*1000).toLocaleDateString(),
+                    examDate: new Date(data.examDate * 1000).toLocaleDateString(),
                     programName: data.programName,
                     courseCode: data.courseCode,
                     courseName: data.courseName,
@@ -565,7 +666,7 @@ exports.sendAssignmentMail = async (req, res) => {
                     examShift: data.shiftOfExam,
                     qrCodeString: data.qrCodeString
                 }
-                
+
                 const template = Handlebars.compile(emailTemplate.html)
                 const subject = Handlebars.compile(emailTemplate.subject)
 
@@ -577,19 +678,19 @@ exports.sendAssignmentMail = async (req, res) => {
                     subject: emailSubjectWithData,
                     html: emailTemplateWithData
                 })
-                }catch(err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                }
-        
+            } catch (err) {
+                logger.error(`Error: ${err.message || err.toString()}`)
+            }
+
         })
-        
+
 
         res.status(202).json({
             success: true,
             message: "Mail Request Sent!"
         })
-      
-    }catch(err) {
+
+    } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
         res.status(400).json({
             error: true,

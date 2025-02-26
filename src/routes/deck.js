@@ -17,7 +17,9 @@ const {
     manualReminderToDrop,
     sendAssignmentMail,
     updateDeck,
-    deleteAllDecks
+    deleteAllDecks,
+    generatePamplets,
+    generatePampletsPdf
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -69,6 +71,20 @@ router.get(
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR']), 
     getDeckById
+)
+
+router.get(
+    '/pamplets.html', 
+    authenticate, 
+    authorizeRoles(['ADMIN', 'MODERATOR']), 
+    generatePamplets
+)
+
+router.get(
+    '/pamplets.pdf', 
+    authenticate, 
+    authorizeRoles(['ADMIN', 'MODERATOR']), 
+    generatePampletsPdf
 )
 
 router.post(
