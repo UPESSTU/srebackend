@@ -23,8 +23,7 @@ const deckSchema = new Schema({
         requried: true
     },
     school: {
-        type: Schema.ObjectId,
-        ref: 'School',
+        type: String,
         required: true
     },
     evaluator: {

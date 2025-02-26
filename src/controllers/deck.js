@@ -79,30 +79,30 @@ exports.uploadDeck = async (req, res) => {
 
                     const evaluator = await User.findOne(
                         {
-                            emailAddress: row.evaluatorEmail
+                            emailAddress: row['Evaluator Email']
                         }
                     )
                     const school = await School.findOne(
                         {
-                            shortName: row.schoolName
+                            shortName: row['School']
                         }
                     )
                    
                     const deck = {
-                        examDate: Math.floor(new Date(row.examDate).getTime() / 1000),
-                        programName: row.programName,
-                        courseCode: row.courseCode,
-                        courseName: row.courseName,
+                        examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
+                        programName: row['Program Name'],
+                        courseCode: row['Course Code'],
+                        courseName: row['Course'],
                         school: school._id,
                         evaluator: evaluator._id,
-                        packetNumber: row.packetNumber,
-                        semester: row.semester,
-                        studentCount: row.studentCount,
-                        rackNumber: row.rackNumber,
-                        numberOfAnswerSheets: row.numberOfAnswerSheets,
-                        roomNumber: row.roomNumber,
-                        shiftOfExam: row.shift === 'M' ? 'MORNING' : 'EVENING',
-                        qrCodeString: `${row.schoolName}_${row.examDate}_${row.shift}_${row.courseCode}_${row.roomNumber}_${row.programName}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row.studentCount}`
+                        packetNumber: row['Packet No.'],
+                        semester: row['Sem'],
+                        studentCount: row['ST.Count'],
+                        rackNumber: row['Rack No.'],
+                        numberOfAnswerSheets: 0,
+                        roomNumber: row['Room'],
+                        shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
+                        qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}`
                         // SOAE_02.12.2024_E_CHEM8048_11013_MSc_Chem_Jimmy Mangalam_St.Count_1
 
 
@@ -141,25 +141,71 @@ exports.getDecks = async (req, res) => {
         const {
             page,
             limit,
+            sortBy,
+            sortOrder,
+            search
         } = req.query
 
 
         const options = {
-            page: page ? page : 1,
-            limit: limit ? limit : 10,
-            sort: { schoolName: 1 },
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 10,
+            sort: {
+                [sortBy || 'courseName']: sortOrder === 'desc' ? -1 : 1
+            },
             populate: [
                 {
                     path: 'evaluator',
                     select: 'firstName lastName emailAddress sapId'
-                },
-                {
-                    path: 'school'
                 }
             ]
         }
 
-        const response = await Deck.paginate({}, options)
+        let query = {}
+
+        if(search) {
+            query = {
+                $or: [
+                    {
+                        programName: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        courseCode: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        courseName: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        school: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        semester: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        statusOfDeck: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        qrCodeString: {
+                            $regex: search, $options: 'i'
+                        }
+                    }
+                ]
+            }
+        }
+
+        const response = await Deck.paginate(query, options)
 
         res.json({
             success: true,
@@ -294,9 +340,70 @@ exports.changeAnswerSheetCount = async (req, res) => {
     }
 }
 
+exports.updateDeck = async (req, res) => {
+    try {
+
+        const {
+            deckId,
+            update
+        } = req.body
+
+        const response = await Deck.findByIdAndUpdate(
+            {
+                _id: deckId
+            },
+            update,
+            {
+                new: true
+            }
+        )
+
+        res.json({
+            success: true,
+            message: `Updated!`,
+            dbRes: response
+        })
+
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
+    }
+}
+
+exports.deleteAllDecks =  async (req, res) => {
+    try {
+
+        const response = await Deck.deleteMany({})
+
+        res.json({
+            success: true,
+            message: `Deleted All!`,
+        })
+
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
+    }
+}
+
 exports.changeStatusOfDeck = async (req, res) => {
     try {
 
+        const { action } = req.query
         const {
             qrCodeString
         } = req.body
@@ -312,8 +419,8 @@ exports.changeStatusOfDeck = async (req, res) => {
 
         const update = {}
 
-        deck.statusOfDeck === 'PENDING' ? update.statusOfDeck = 'PICKED_UP' : null
-        deck.statusOfDeck === 'PICKED_UP' ? update.statusOfDeck = 'DROPPED' : null
+        action === 'pickup' ? update.statusOfDeck = 'PICKED_UP' : null
+        action === 'drop' ? update.statusOfDeck = 'DROPPED' : null
 
         update.statusOfDeck === 'PICKED_UP' ? update.pickUpTimestamp = Math.floor(new Date().getTime() / 1000) : null
         update.statusOfDeck === 'DROPPED' ? update.dropTimestamp = Math.floor(new Date().getTime() / 1000) : null            
@@ -475,14 +582,12 @@ exports.sendReminderToDrop = async () => {
 
 exports.sendAssignmentMail = async (req, res) => {
     try{
-
+        
         const response = await Deck.find({
-            numberOfAnswerSheets: {
-                $gt: 0
-            }
+            numberOfAnswerSheets: { $gt: 0 }
         }).populate('evaluator')
         
-
+        console.log(response)
         response.map((data) => {
             sendMail({
                 to: `${data.evaluator.emailAddress}`,
@@ -535,7 +640,7 @@ exports.sendAssignmentMail = async (req, res) => {
                     <div class="container">
                         <div class="header">Assigned Deck of Sheets</div>
                         <div class="content">
-                            <p>Dear ${deck.evaluator.firstName},</p>
+                            <p>Dear ${data.evaluator.firstName},</p>
                             <p>You have been assigned a new deck of sheets for review and feedback. Please find the details below:</p>
                             <p><strong>Course Name:</strong> ${data.courseName}</p>
                             <p><strong>Course Code:</strong> ${data.courseCode}</p>

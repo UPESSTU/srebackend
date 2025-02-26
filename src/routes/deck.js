@@ -15,7 +15,9 @@ const {
     changeStatusOfDeck,
     changeAnswerSheetCount,
     manualReminderToDrop,
-    sendAssignmentMail
+    sendAssignmentMail,
+    updateDeck,
+    deleteAllDecks
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -31,6 +33,20 @@ router.post(
     authenticate,
     authorizeRoles(['ADMIN', 'MODERATOR']),
     changeAnswerSheetCount
+)
+
+router.delete(
+    '/delete',
+    authenticate,
+    authorizeRoles(['ADMIN']),
+    deleteAllDecks
+)
+
+router.put(
+    '/update',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    updateDeck
 )
 
 router.get(
