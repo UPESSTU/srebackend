@@ -498,7 +498,7 @@ exports.sendReminderToDrop = async () => {
 
                 const emailData = {
                     evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
-                    examDate: new Date(data.examDate).toDateString(),
+                    examDate: new Date(data.examDate*1000).toLocaleDateString(),
                     programName: data.programName,
                     courseCode: data.courseCode,
                     courseName: data.courseName,
@@ -555,7 +555,7 @@ exports.sendAssignmentMail = async (req, res) => {
 
                 const emailData = {
                     evaluatorName: data.evaluator.firstName + " " + data.evaluator.lastName,
-                    examDate: new Date(data.examDate).toDateString(),
+                    examDate: new Date(data.examDate*1000).toLocaleDateString(),
                     programName: data.programName,
                     courseCode: data.courseCode,
                     courseName: data.courseName,

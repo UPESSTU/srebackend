@@ -5,7 +5,6 @@ const smtpSchema = Schema({
     emailAddress: {
         type: String,
         required: true,
-        unique: true
     },
     emailPassword: {
         type: String,
