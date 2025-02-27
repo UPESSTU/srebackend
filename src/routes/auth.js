@@ -39,7 +39,7 @@ router.post(
     changePassword
 )
 
-router.post('/logout', loggout)
+router.get('/logout', loggout)
 
 
 module.exports = router
