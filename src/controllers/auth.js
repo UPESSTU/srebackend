@@ -244,7 +244,7 @@ exports.addFacultyBulk = async (req, res) => {
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
                     const faculty = {
-                        sapId: row.sapId,
+                        sapId: row.row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
                         userName: row.emailAddress.split('@')[0],

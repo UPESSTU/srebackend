@@ -82,8 +82,8 @@ router.get(
 
 router.get(
     '/pamplets.pdf', 
-    authenticate, 
-    authorizeRoles(['ADMIN', 'MODERATOR']), 
+    // authenticate, 
+    // authorizeRoles(['ADMIN', 'MODERATOR']), 
     generatePampletsPdf
 )
 
