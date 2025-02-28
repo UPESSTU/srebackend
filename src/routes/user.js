@@ -5,7 +5,8 @@ const {
     getUsers,
     changePassword,
     deleteFaculty,
-    changeRole
+    changeRole,
+    getUserById
 } = require('../controllers/user')
 const authorizeRoles = require('../middlewares/permission')
 
@@ -21,7 +22,7 @@ router.get(
     '/profile/:userId', 
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR']), 
-    getProfile
+    getUserById
 )
 
 router.get(
