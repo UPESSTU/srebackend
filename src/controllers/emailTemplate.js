@@ -72,7 +72,7 @@ exports.getTemplates = async (req, res) => {
     try{
        
         
-        const response = await EmailTemplate.find().select('templateName')
+        const response = await EmailTemplate.find()
 
         res.status(200).json({
             message: 'Email Templates Fetched',
