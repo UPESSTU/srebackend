@@ -499,6 +499,60 @@ exports.changePassword = async (req, res) => {
     }
 }
 
+exports.passwordChange = async (req, res) => {
+    try {
+
+        const {
+            oldPassword,
+            newPassword
+        } = req.body
+
+        const response = await User.findOne({ _id: req.auth._id })
+
+        if(!response) 
+            return res.status(400).json({
+                error: true,
+                message: 'Something unexpected happened!'
+            })
+       
+        const oldEncpyPassword = await hashPassword(oldPassword, response.salt) 
+        
+        if(response.encpy_password !== oldEncpyPassword) 
+            return res.status(401).json({
+                error: true,
+                message: 'Old password incorrect!'
+            })
+       
+
+        const encpy_password = await hashPassword(newPassword, response.salt)
+
+        const update = await User.updateOne(
+            {
+                _id: response._id
+            },
+            {
+                $set: {
+                    encpy_password: encpy_password,
+                }
+            }
+        )
+
+        res.json({
+            success: true,
+            message: 'Password Changed!',
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}
+
 exports.loggout = async (req, res) => {
 
     try {

@@ -5,7 +5,8 @@ const {
     requestChangePassword, 
     changePassword, 
     loggout, 
-    addFacultyBulk 
+    addFacultyBulk, 
+    passwordChange
 } = require('../controllers/auth')
 const { upload } = require('../utils/upload')
 const authenticate = require('../middlewares/authenticate')
@@ -37,6 +38,13 @@ router.post(
 router.post(
     '/change-password',
     changePassword
+)
+
+router.put(
+    '/changepassword',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    passwordChange
 )
 
 router.get('/logout', loggout)

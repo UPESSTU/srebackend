@@ -75,8 +75,8 @@ router.get(
 
 router.get(
     '/pamplets.html', 
-    authenticate, 
-    authorizeRoles(['ADMIN', 'MODERATOR']), 
+    // authenticate, 
+    // authorizeRoles(['ADMIN', 'MODERATOR']), 
     generatePamplets
 )
 

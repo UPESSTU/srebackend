@@ -22,9 +22,27 @@ const renderTemplate = async (templateName, data) => {
 
 exports.generatePampletsPdf = async (req, res) => {
     try {
-        const response = await Deck.find().populate('evaluator').lean()
+        const {
+            pagee,
+            limit,
+            examName
+        } = req.query
+
+
+        const options = {
+            page: pagee ? parseInt(pagee) : 1,
+            limit: limit ? parseInt(limit) : 10,
+            lean:true,
+            populate: [
+                {
+                    path: 'evaluator',
+                }
+            ]
+        }
+
+        const response = await Deck.paginate({}, options)
         const updatedResponse = await Promise.all(
-            response.map(async (item) => {
+            response.docs.map(async (item) => {
                 const qrCodeData = item.qrCodeString
                 const qrCodeUrl = await QRCode.toDataURL(qrCodeData)
                 const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
@@ -37,13 +55,14 @@ exports.generatePampletsPdf = async (req, res) => {
                     ...item,
                     qrCode: qrCodeUrl,
                     examDate: examDate,
-                    examTime: examTime
+                    examTime: examTime,
                 }
             })
         )
         const data = {
             data: updatedResponse,
             logo: 'http://localhost:8000/upes.svg',
+            examName: examName
         }
         const html = await renderTemplate("pdf", data)
 
@@ -54,7 +73,11 @@ exports.generatePampletsPdf = async (req, res) => {
             waitUntil: 'networkidle2'
         })
         await page.pdf({
-            path: path.join(__dirname, '..', 'public', 'pamplets.pdf')
+            path: path.join(__dirname, '..', 'public', 'pamplets.pdf'),
+            margin: {
+                left: '5mm',
+                right: '5mm',
+            }
         })
 
         await browser.close()
@@ -73,9 +96,28 @@ exports.generatePampletsPdf = async (req, res) => {
 
 exports.generatePamplets = async (req, res) => {
     try {
-        const response = await Deck.find().populate('evaluator').lean()
+        const {
+            page,
+            limit,
+            examName
+        } = req.query
+
+
+        const options = {
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 10,
+            lean:true,
+            populate: [
+                {
+                    path: 'evaluator',
+                }
+            ]
+        }
+
+        const response = await Deck.paginate({}, options)
+
         const updatedResponse = await Promise.all(
-            response.map(async (item) => {
+            response.docs.map(async (item) => {
                 const qrCodeData = item.qrCodeString
                 const qrCodeUrl = await QRCode.toDataURL(qrCodeData)
                 const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
@@ -88,18 +130,22 @@ exports.generatePamplets = async (req, res) => {
                     ...item,
                     qrCode: qrCodeUrl,
                     examDate: examDate,
-                    examTime: examTime
+                    examTime: examTime,
+                    examName: examName
                 }
             })
         )
         const data = {
             data: updatedResponse,
-            logo: 'http://localhost:8000/upes.svg',
+            logo: '/upes.svg',
+
         }
+
         const html = await renderTemplate("pdf", data)
 
         res.send(html)
-    } catch (error) {
+
+    } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
         res.status(400).json({
             error: true,
