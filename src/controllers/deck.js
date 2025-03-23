@@ -245,16 +245,12 @@ exports.uploadDeck = async (req, res) => {
                         numberOfAnswerSheets: 0,
                         roomNumber: row['Room'],
                         shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
-                        qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}`
-                        // SOAE_02.12.2024_E_CHEM8048_11013_MSc_Chem_Jimmy Mangalam_St.Count_1
-
+                        qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}`
 
                     }
-                    console.log(deck)
                     await Deck.create(deck)
                 } catch (err) {
                     logger.error(`Error: ${err.message || err.toString()}`)
-                    console.log(err)
                 }
             })
             .on('end', async () => {
