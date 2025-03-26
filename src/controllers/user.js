@@ -100,7 +100,7 @@ exports.getUsers = async (req, res) => {
         const options = {
             page: page ? page : 1,
             limit: limit ? limit : 10,
-            sort: { sapId: 1 },
+            sort: { role: 1, sapId: 1 },
             select: 'sapId firstName lastName emailAddress role'
         }
 
@@ -158,6 +158,67 @@ exports.changePassword = async (req, res) => {
             success: true,
             message: `Password Changed`,
             dbRes: updatePassword
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}
+
+
+exports.changeRole = async (req, res) => {
+    try {
+        const {
+            role,
+            userId
+        } = req.body
+
+        const response = await User.findOneAndUpdate(
+            {
+                _id: userId
+            },
+            {
+                $set: {
+                    role: role
+                }
+            }
+        )
+
+
+        res.json({
+            success: true,
+            message: `Role Changed`,
+            dbRes: response
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}
+
+exports.deleteFaculty = async (req, res) => {
+    try {
+      
+
+        const response = await User.deleteMany({ role: "FACULTY" })
+        
+       
+        res.json({
+            success: true,
+            message: `Users Deleted`,
+            dbRes: response
         })
 
     } catch (err) {

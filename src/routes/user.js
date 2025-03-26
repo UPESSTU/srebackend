@@ -3,7 +3,10 @@ const authenticate = require('../middlewares/authenticate')
 const {
     getProfile,
     getUsers,
-    changePassword
+    changePassword,
+    deleteFaculty,
+    changeRole,
+    getUserById
 } = require('../controllers/user')
 const authorizeRoles = require('../middlewares/permission')
 
@@ -19,7 +22,7 @@ router.get(
     '/profile/:userId', 
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR']), 
-    getProfile
+    getUserById
 )
 
 router.get(
@@ -30,12 +33,25 @@ router.get(
 )
 
 router.put(
+    '/change-role', 
+    authenticate, 
+    authorizeRoles(['ADMIN']), 
+    changeRole
+)
+
+
+router.put(
     '/change-password', 
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR', 'FACULTY']), 
     changePassword
 )
 
-
+router.delete(
+    '/delete-users',
+    authenticate,
+    authorizeRoles(['ADMIN']),
+    deleteFaculty
+)
 
 module.exports = router

@@ -50,7 +50,7 @@ exports.signIn = async (req, res) => {
         emailAddress ? filter.emailAddress = emailAddress : null
         sapId ? filter.sapId = sapId : null
 
-        const response = await User.findOne(filter).populate('role')
+        const response = await User.findOne(filter)
 
         if (!response)
             return res.status(401).json({
@@ -78,20 +78,19 @@ exports.signIn = async (req, res) => {
             {
                 algorithm: 'RS256',
                 allowInsecureKeySizes: true,
-                expiresIn: '30min'
+                expiresIn: '1d'
             }
         )
 
         let time = new Date()
 
-        time.setTime(time.getTime() + 1800 * 1000)
+        time.setTime(time.getTime() + 3600 * 24 * 1000)
 
         res.cookie(process.env.AUTH_COOKIE_NAME, token, {
           expire: time,
           path: "/",
           domain: process.env.DOMAIN,
-          sameSite: "None",
-        });
+        })
 
         res.status(200).json({
             success: true,
@@ -241,12 +240,11 @@ exports.addFacultyBulk = async (req, res) => {
                 console.log(row)
 
                 try {
-                    const sapId = parseInt(row.sapId)
                     const salt = randomUUID()
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
                     const faculty = {
-                        sapId: sapId,
+                        sapId: row.row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
                         userName: row.emailAddress.split('@')[0],
@@ -280,70 +278,6 @@ exports.addFacultyBulk = async (req, res) => {
                     await User.insertMany(faculties);
                     logger.info(`${faculties.length} faculty were successfully imported.`)
                     
-                    emailFaculties.map((data) => {
-                        sendMail({
-                            to: data.emailAddress,
-                            subject: "Welcome To SRE Portal",
-                            html: `<!DOCTYPE html>
-                            <html>
-                            <head>
-                                <meta charset="UTF-8">
-                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                <title>Welcome To SRE Portal</title>
-                                <style>
-                                body {
-                                    font-family: Arial, sans-serif;
-                                    background-color: #f4f4f7;
-                                    margin: 0;
-                                    padding: 0;
-                                }
-                                .email-container {
-                                    max-width: 600px;
-                                    background-color: #ffffff;
-                                    margin: 40px auto;
-                                    padding: 20px;
-                                    border-radius: 8px;
-                                }
-                                h1 {
-                                    color: #333333;
-                                }
-                                p {
-                                    color: #555555;
-                                    line-height: 1.6;
-                                }
-                                a.reset-btn {
-                                    display: inline-block;
-                                    background-color: #007bff;
-                                    color: white;
-                                    padding: 12px 18px;
-                                    text-decoration: none;
-                                    border-radius: 4px;
-                                    font-weight: bold;
-                                    margin-top: 10px;
-                                }
-                                .footer {
-                                    text-align: center;
-                                    margin-top: 30px;
-                                    color: #888888;
-                                    font-size: 12px;
-                                }
-                                </style>
-                            </head>
-                            <body>
-                                <div class="email-container">
-                                <h1>Welcome to SRE Portal, ${data.firstName}! (SAPID: ${data.sapId})</h1>
-                                <p>
-                                    Your account has been successfully created. Below are your login details:
-                                </p>
-                                <p><strong>Email:</strong> ${data.emailAddress}</p>
-                                <p><strong>Password:</strong> <span style="color: #007bff;">${data.password}</span></p>
-                        
-                                <p>Thanks,<br>The SRE Portal Team</p>
-                                </div>
-                            </body>
-                            </html>`
-                        })
-                    })
 
                     return res.status(201).json({
                         success: true,
@@ -565,6 +499,60 @@ exports.changePassword = async (req, res) => {
     }
 }
 
+exports.passwordChange = async (req, res) => {
+    try {
+
+        const {
+            oldPassword,
+            newPassword
+        } = req.body
+
+        const response = await User.findOne({ _id: req.auth._id })
+
+        if(!response) 
+            return res.status(400).json({
+                error: true,
+                message: 'Something unexpected happened!'
+            })
+       
+        const oldEncpyPassword = await hashPassword(oldPassword, response.salt) 
+        
+        if(response.encpy_password !== oldEncpyPassword) 
+            return res.status(401).json({
+                error: true,
+                message: 'Old password incorrect!'
+            })
+       
+
+        const encpy_password = await hashPassword(newPassword, response.salt)
+
+        const update = await User.updateOne(
+            {
+                _id: response._id
+            },
+            {
+                $set: {
+                    encpy_password: encpy_password,
+                }
+            }
+        )
+
+        res.json({
+            success: true,
+            message: 'Password Changed!',
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}
+
 exports.loggout = async (req, res) => {
 
     try {
@@ -574,15 +562,10 @@ exports.loggout = async (req, res) => {
             {
                 path: '/',
                 domain: process.env.DOMAIN,
-                expires: new Date(1)
             }
         )
 
-        res.status(200).json({
-            logout: true,
-            message: 'User Logged Out!',
-            redirect: true
-        })
+        res.send("<script>window.location.href = '/'</script>")
 
     } catch (err) {
 
