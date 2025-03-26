@@ -148,9 +148,6 @@ exports.getDecks = async (req, res) => {
                 {
                     path: 'evaluator',
                     select: 'firstName lastName emailAddress sapId'
-                },
-                {
-                    path: 'school'
                 }
             ]
         }
