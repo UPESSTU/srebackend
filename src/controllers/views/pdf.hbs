@@ -1,81 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pamplets</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .qr-box {
-            background: white;
-            padding: 10px;
-            margin-bottom: 5px; 
-        }
-        .main {
-            text-align: "";
-            display: block; 
-        },
-        hr {
-            border-top:1px dotted #000;
-        }
 
-    </style>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pamphlets</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: Calibri, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    }
+
+    .qr-box {
+      background: white;
+      padding: 15px;
+      margin-bottom: 5px;
+      width: 785px;
+      height: 545px;
+    }
+
+    hr {
+      border-top: 1px dotted #000;
+      margin-top: 2px;
+    }
+
+    table td {
+      padding: 6px 10px;
+      vertical-align: top;
+    }
+
+    .text-xl {
+      font-size: 22px;
+    }
+  </style>
 </head>
-<body>
-    <div class="main">
-        {{#each data}}
-        <div class="qr-box">
-            <div class="flex justify-center mb-4">
-                <img src="{{../logo}}" alt="UPES Logo" class="h-[40px] w-[120px]" />
-            </div>
-            
-            <div>
-                <div class="flex mt-2 justify-between">
-                    <span class="text-lg font-bold">
-                        <h2 class="text-lg font-bold">
-                            {{ examName }}
-                        </h2>
-                    </span>
-                    <span class="text-lg font-bold">
-                        <h2 class="text-lg font-bold">Rack No: {{this.rackNumber}}</h2>
-                    </span>
-                </div>
-                <div class="flex justify-between mt-2">
-                    <span><strong>Date:</strong> {{this.examDate}}</span>
-                    <span><strong>Time:</strong> 
-                        {{this.examTime}}
-                    </span>
-                    <span><strong>Packet No:</strong> {{this.packetNumber}}</span>
-                </div>
-                <div class="mt-6 space-y-2 flex justify-between">
-                    <span>
-                        <div class="mt-2">
-                            <p class="mb-2"><strong>Program:</strong> {{this.programName}}</p>
-                            <p class="mb-2"><strong>Semester:</strong> {{this.semester}}</p>
-                            <p class="mb-2"><strong>Course Code:</strong> {{this.courseCode}}</p>
-                            <p class="mb-2"><strong>Course Name:</strong> {{this.courseName}}</p>
-                        </div>
-                    </span>
-                    <span>
-                        <div>
-                          <img src="{{this.qrCode}}" alt="QR Code for {{this.name}}" />
-                        </div>
-                    </span>
-                </div>
-                <div class="mt-6">
-                    <p class="mb-2"><strong>Name of Evaluator:</strong> {{this.evaluator.firstName}} {{this.evaluator.lastName}}</p>
-                    <p class="mb-2"><strong>Total Students:</strong> {{this.studentCount}}</p>
-                    <p class="mb-2"><strong>Absent:</strong> {{this.absent}}</p>
-                </div>
-                <div class="mt-4 justify-between flex border-t pt-2">
-                    <span class="w-1/2"><p><strong>Invigilator Name:</strong> {{this.invigilator}}</p></span>
-                    <span class="w-1/2"><p class="italic ">Signature of Invigilator:___________________________</p></span>
-                </div>
-            </div>
+
+<body class="flex flex-col items-center p-6">
+
+  <div class="main">
+    {{#each data}}
+    <div class="qr-box">
+
+      <!-- Logo -->
+      <div class="flex justify-center mb-3">
+        <img src="{{../logo}}" alt="UPES Logo" class="h-[40px] w-[120px]" />
+      </div>
+
+      <!-- Centered Exam Title -->
+      <div class="text-center mb-2">
+        <h2 class="text-xl font-extrabold">{{ examName }}</h2>
+      </div>
+
+      <!-- Rack No -->
+      <div class="flex justify-end text-xl font-medium mb-2 space-x-8">
+        <span><strong>Rack No:</strong>{{this.rackNumber}}</span>
+        <span><strong>Room No:</strong> {{this.roomNumber}}</span>
+      </div>
+
+      <!-- Date / Time / Packet -->
+      <div class="flex justify-between text-xl font-medium mb-2">
+        <span><strong>Date:</strong> {{this.examDate}}</span>
+        <span><strong>Time:</strong> {{this.examTime}}</span>
+        <span><strong>Packet No:</strong> {{this.packetNumber}}</span>
+      </div>
+
+      <!-- Program Info Table + QR Code -->
+      <div class="flex justify-between mt-2 text-xl">
+        <div>
+          <table>
+            <tr>
+              <td><strong>Program:</strong></td>
+              <td>{{this.programName}}</td>
+            </tr>
+            <tr>
+              <td><strong>Semester:</strong></td>
+              <td>{{this.semester}}</td>
+            </tr>
+            <tr>
+              <td><strong>Course Code:</strong></td>
+              <td>{{this.courseCode}}</td>
+            </tr>
+            <tr>
+              <td><strong>Course Name:</strong></td>
+              <td>{{this.courseName}}</td>
+            </tr>
+          </table>
         </div>
-        <hr class="p-1"/>
-        {{/each}}
+        <div class="flex items-center">
+          <img src="{{this.qrCode}}" alt="QR Code for {{this.name}}" class="h-[140px] w-[140px]" />
+        </div>
+      </div>
+
+      <!-- Evaluator Details -->
+      <div class="text-xl">
+        <table>
+          <tr>
+            <td><strong>Name of Evaluator:</strong></td>
+            <td>{{this.evaluator.firstName}} {{this.evaluator.lastName}}</td>
+          </tr>
+          <tr>
+            <td><strong>Total Students:</strong></td>
+            <td>{{this.studentCount}}</td>
+          </tr>
+
+        </table>
+        <table>
+            <tr>
+              <td style="padding-right: 30px;"><strong>Total Number of Copies:</strong></td>
+              <td style="padding-right: 30px;"></td>
+              <td style="padding-right: 30px;"><strong>Absent:</strong></td>
+              <td style="padding-right: 30px;">{{this.absent}}</td>
+              <td style="padding-right: 30px;"><strong>UFM:</strong></td>
+            </tr>
+
+        </table>
+      </div>
+
+      <!-- Invigilator Signature -->
+      <div class="flex justify-between items-start mt-2 pt-2 border-t text-xl">
+        <p class=""><strong>Invigilator Name:</strong> {{this.invigilator}}</p>
+        <p class=" italic text-right">Signature of Invigilator: ___________________________</p>
+      </div>
     </div>
+    <hr />
+    {{/each}}
+  </div>
 
 </body>
+
 </html>

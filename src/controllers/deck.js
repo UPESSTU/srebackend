@@ -657,7 +657,7 @@ exports.sendReminderToDrop = async () => {
 
                 const emailTemplateWithData = template(emailData)
                 const emailSubjectWithData = subject(emailData)
-
+console.log(data)
                 sendMail({
                     to: `${data.evaluator.emailAddress}`,
                     subject: emailSubjectWithData,
@@ -714,7 +714,7 @@ exports.sendAssignmentMail = async (req, res) => {
 
                 const emailTemplateWithData = template(emailData)
                 const emailSubjectWithData = subject(emailData)
-
+                console.log(data)
                 sendMail({
                     to: `${data.evaluator.emailAddress}`,
                     subject: emailSubjectWithData,

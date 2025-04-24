@@ -8,7 +8,9 @@ module.exports = async ( { to, subject, html }) => {
     try {
 
         const smtp = await SMTP.find()
+        console.log(smtp)
         const emailConfiguration = {
+
             host: smtp[0].smtpHost,
             port: smtp[0].smtpPort,
             secure: smtp[0].smtpSecure,
@@ -21,7 +23,7 @@ module.exports = async ( { to, subject, html }) => {
         const transporter = nodemailer.createTransport(emailConfiguration)
     
         const mail = {
-            from: `"No Reply SRE" <${smtp.emailAddress}>`,
+            from: `"No Reply SRE" <${smtp[0].emailAddress}>`,
             to: to,
             subject: subject,
             html: html

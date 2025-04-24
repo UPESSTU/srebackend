@@ -49,7 +49,7 @@ const deckSchema = new Schema({
     },
     rackNumber: {
         type: String,
-        required: true
+        
     },
     numberOfAnswerSheets: {
         type: Number,
