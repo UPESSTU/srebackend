@@ -212,66 +212,64 @@ exports.addDeck = async (req, res) => {
 }
 
 exports.uploadDeck = async (req, res) => {
+
+    const filePath = req.file.path
+    const rows = []
+    const insertedDecks = []
+
     try {
-
-        const filePath = req.file.path
-
-        const decks = new Array()
-
-
-        fs.createReadStream(filePath)
-            .pipe(csvParser())
-            .on('data', async (row) => {
-                try {
-
-                    const evaluator = await User.findOne(
-                        {
-                            emailAddress: row['Evaluator Email']
-                        }
-                    )
-
-
-                    const deck = {
-                        examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
-                        programName: row['Program Name'],
-                        courseCode: row['Course Code'],
-                        courseName: row['Course'],
-                        school: row['School'],
-                        evaluator: evaluator._id,
-                        packetNumber: row['Packet No.'],
-                        semester: row['Sem'],
-                        studentCount: row['ST.Count'],
-                        rackNumber: row['Rack No.'],
-                        numberOfAnswerSheets: 0,
-                        roomNumber: row['Room'],
-                        shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
-                        qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}`
-
-                    }
-                    await Deck.create(deck)
-                } catch (err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                }
-            })
-            .on('end', async () => {
-
-                return res.status(201).json({
-                    success: true,
-                    message: `Decks were imported!`
-                })
-            })
-
-
-    } catch (err) {
-        logger.error(`Error: ${err.message || err.toString()}`)
-        console.log(err)
-        res.status(400).json({
-            error: true,
-            message: "An Unexpected Error Occurrred",
-            errorJSON: err,
-            errorString: err.toString()
+        await new Promise((resolve, reject) => {
+            fs.createReadStream(filePath)
+                .pipe(csvParser())
+                .on('data', (row) => rows.push(row))
+                .on('end', resolve)
+                .on('error', reject)
         })
 
+
+        for (const row of rows) {
+            const evaluator = await User.findOne({ emailAddress: row['Evaluator Email'] })
+
+            if (!evaluator) throw new Error(`Evaluator not found: ${row['Evaluator Email']}`)
+
+            const deck = {
+                examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
+                programName: row['Program Name'],
+                courseCode: row['Course Code'],
+                courseName: row['Course'],
+                school: row['School'],
+                evaluator: evaluator._id,
+                packetNumber: row['Packet No.'],
+                semester: row['Sem'],
+                studentCount: row['ST.Count'],
+                rackNumber: row['Rack No.'],
+                numberOfAnswerSheets: 0,
+                roomNumber: row['Room'],
+                shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
+                qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}`
+            }
+
+            const createdDeck = await Deck.create(deck)
+            insertedDecks.push(createdDeck._id) 
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: 'Decks were imported successfully!',
+            deckCount: insertedDecks.length
+        })
+
+    } catch (err) {
+        if (insertedDecks.length > 0) {
+            await Deck.deleteMany({ _id: { $in: insertedDecks } })
+        }
+
+        logger.error(`Upload Error: ${err.message || err.toString()}`)
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to upload decks.',
+            error: err.message || err.toString()
+        })
     }
 }
 

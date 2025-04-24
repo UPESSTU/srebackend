@@ -244,23 +244,24 @@ exports.addFacultyBulk = async (req, res) => {
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
                     const faculty = {
-                        sapId: row.row.sapId,
+                        sapId: row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
                         userName: row.emailAddress.split('@')[0],
                         emailAddress: row.emailAddress,
                         salt: salt,
                         encpy_password: encpy_password,
-                        role: 'FACULTY'
+                        role: row.role ? row.role : 'FACULTY'
                     }
                     const emailFaculty = {
                         sapId: row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
                         emailAddress: row.emailAddress,
-                        role: 'FACULTY',
+                        role: row.role ? row.role : 'FACULTY',
                         password: password
                     }
+                    console.log(emailFaculty)
                     faculties.push(faculty)
                     emailFaculties.push(emailFaculty)
                 }catch(err) {
