@@ -32,7 +32,7 @@ exports.generatePampletsPdf = async (req, res) => {
         const options = {
             page: pagee ? parseInt(pagee) : 1,
             limit: limit ? parseInt(limit) : 10,
-            lean:true,
+            lean: true,
             populate: [
                 {
                     path: 'evaluator',
@@ -49,7 +49,7 @@ exports.generatePampletsPdf = async (req, res) => {
                     day: "2-digit",
                     month: "long",
                     year: "numeric"
-                })               
+                })
                 const examTime = item.shiftOfExam === 'MORNING' ? '10:00AM' : '2:00PM'
                 return {
                     ...item,
@@ -61,7 +61,7 @@ exports.generatePampletsPdf = async (req, res) => {
         )
         const data = {
             data: updatedResponse,
-            logo: 'http://localhost:8000/upes.svg',
+            logo: '/upes.png',
             examName: examName
         }
         const html = await renderTemplate("pdf", data)
@@ -82,7 +82,7 @@ exports.generatePampletsPdf = async (req, res) => {
 
         await browser.close()
         res.sendFile(path.join(__dirname, '..', 'public', 'pamplets.pdf'))
-        
+
     } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`)
         res.status(400).json({
@@ -106,7 +106,7 @@ exports.generatePamplets = async (req, res) => {
         const options = {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
-            lean:true,
+            lean: true,
             populate: [
                 {
                     path: 'evaluator',
@@ -137,7 +137,7 @@ exports.generatePamplets = async (req, res) => {
         )
         const data = {
             data: updatedResponse,
-            logo: '/upes.svg',
+            logo: '/upes.png',
 
         }
 
@@ -250,7 +250,7 @@ exports.uploadDeck = async (req, res) => {
             }
 
             const createdDeck = await Deck.create(deck)
-            insertedDecks.push(createdDeck._id) 
+            insertedDecks.push(createdDeck._id)
         }
 
         return res.status(201).json({
@@ -570,7 +570,35 @@ exports.changeStatusOfDeck = async (req, res) => {
             {
                 new: true
             }
-        )
+        ).populate("evaluator")
+
+        sendMail({
+            to: `${response.evaluator.emailAddress}`,
+            subject: `Answer Sheets ${response.statusOfDeck} From SRE: ${response.qrCodeString}`,
+            html: `
+
+<html>
+            <body>
+                <h3>Answer Sheets Notification</h3>
+                <p>Hello ${response.evaluator.firstName},</p>
+                <p>The answer sheets have been marked as <strong>${response.statusOfDeck}</strong>.</p>
+                <p>Details:</p>
+                <table border="1" cellpadding="5" cellspacing="0">
+                    <tr>
+                        <td><strong>QR Code</strong></td>
+                        <td>${response.qrCodeString}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Status</strong></td>
+                        <td>${response.statusOfDeck}</td>
+                    </tr>
+                </table>
+                <p>Please take the necessary actions if required.</p>
+                <p>Regards,<br/>SRE Team</p>
+            </body>
+        </html>
+            `
+        })
 
         res.json({
             success: true,
@@ -655,7 +683,7 @@ exports.sendReminderToDrop = async () => {
 
                 const emailTemplateWithData = template(emailData)
                 const emailSubjectWithData = subject(emailData)
-console.log(data)
+                console.log(data)
                 sendMail({
                     to: `${data.evaluator.emailAddress}`,
                     subject: emailSubjectWithData,
