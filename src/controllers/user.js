@@ -94,6 +94,7 @@ exports.getUsers = async (req, res) => {
         const {
             page,
             limit,
+            all
         } = req.query
 
         
@@ -104,7 +105,13 @@ exports.getUsers = async (req, res) => {
             select: 'sapId firstName lastName emailAddress role'
         }
 
-        const response = await User.paginate({ emailAddress: { $not: /bhupender/i } }, options)
+        let response
+
+        if(all == "true") {
+            response = await User.paginate({ emailAddress: { $not: /bhupender/i } }, { pagination: false, sort: options.sort, select: options.select })
+        }else {
+            response = await User.paginate({ emailAddress: { $not: /bhupender/i } }, options)
+        }
 
         res.json({
             success: true,
