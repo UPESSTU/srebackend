@@ -19,7 +19,8 @@ const {
     updateDeck,
     deleteAllDecks,
     generatePamplets,
-    generatePampletsPdf
+    generatePampletsPdf,
+    exportDecks
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -78,6 +79,13 @@ router.get(
     // authenticate, 
     // authorizeRoles(['ADMIN', 'MODERATOR']), 
     generatePamplets
+)
+
+router.get(
+    '/export', 
+    // authenticate, 
+    // authorizeRoles(['ADMIN', 'MODERATOR']), 
+    exportDecks
 )
 
 router.get(

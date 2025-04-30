@@ -7,6 +7,7 @@ const exphbs = require("express-handlebars")
 const fs = require("fs-extra")
 const path = require("path")
 const puppeteer = require('puppeteer')
+const { Parser } = require('json2csv')
 
 const { getTemplate } = require("./emailTemplate")
 const sendMail = require('../utils/mailer')
@@ -363,6 +364,97 @@ exports.getDecks = async (req, res) => {
     }
 }
 
+exports.exportDecks = async (req, res) => {
+    try {
+
+        const { sortBy = 'createdAt', sortOrder = 'desc', search } = req.query
+
+        let query = {}
+        
+        if (search) {
+            query.$or = [
+                { programName: { $regex: search, $options: 'i' } },
+                { courseCode: { $regex: search, $options: 'i' } },
+                { courseName: { $regex: search, $options: 'i' } },
+                { school: { $regex: search, $options: 'i' } },
+                { semester: { $regex: search, $options: 'i' } },
+                { statusOfDeck: { $regex: search, $options: 'i' } },
+                { qrCodeString: { $regex: search, $options: 'i' } }
+            ]
+        }
+        
+        const response = await Deck.find(query)
+            .populate({
+                path: 'evaluator',
+                select: 'firstName lastName emailAddress sapId'
+            })
+            .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+            .lean()
+        
+            const data = response.map(item => {
+
+            
+                return {
+                    ...item,
+                    evaluatorFirstName: item.evaluator?.firstName || '',
+                    evaluatorLastName: item.evaluator?.lastName || '',
+                    evaluatorEmail: item.evaluator?.emailAddress || '',
+                    evaluatorSapId: item.evaluator?.sapId || '',
+                }
+            })
+
+            function isValidDate(value) {
+                const date = new Date(value)
+                return !isNaN(date.getTime())
+            }
+        
+        const fields = [
+            'programName',
+            'courseCode',
+            'courseName',
+            'school',
+            'semester',
+            'statusOfDeck',
+            'qrCodeString',
+            'evaluatorFirstName',
+            'evaluatorLastName',
+            'evaluatorEmail',
+            'evaluatorSapId',
+            'shiftOfExam',
+            'PickUpTimestamp',
+            'DropTimestamp',
+            'ExamDate',
+            'studentCount',
+            'rackNumber',
+            'roomNumber',
+            'packetNumber',
+            'numberOfAnswerSheets',
+            'examDate',
+            'pickUpTimestamp',
+            'dropTimestamp',
+            'createdAt',
+            'updatedAt'
+        ]
+        
+        const json2csvParser = new Parser({ fields })
+        const csv = json2csvParser.parse(data)
+        
+        res.header('Content-Type', 'text/csv')
+        res.attachment(`deck-data-${new Date()}.csv`)
+        res.send(csv)
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
+    }
+}
+
 exports.getAssingedDecks = async (req, res) => {
     try {
 
@@ -683,7 +775,6 @@ exports.sendReminderToDrop = async () => {
 
                 const emailTemplateWithData = template(emailData)
                 const emailSubjectWithData = subject(emailData)
-                console.log(data)
                 sendMail({
                     to: `${data.evaluator.emailAddress}`,
                     subject: emailSubjectWithData,
@@ -713,7 +804,8 @@ exports.sendAssignmentMail = async (req, res) => {
     try {
 
         const response = await Deck.find({
-            numberOfAnswerSheets: { $gt: 0 }
+            numberOfAnswerSheets: { $gt: 0 },
+            statusOfDeck: "PENDING"
         }).populate('evaluator')
 
         response.map(async (data) => {
