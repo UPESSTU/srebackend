@@ -23,7 +23,7 @@ module.exports = async ( { to, subject, html }) => {
         const transporter = nodemailer.createTransport(emailConfiguration)
     
         const mail = {
-            from: `"No Reply SRE" <${smtp[0].emailAddress}>`,
+            from: `"COE [Automated Mail]" <${smtp[0].emailAddress}>`,
             to: to,
             subject: subject,
             html: html

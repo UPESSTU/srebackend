@@ -8,6 +8,7 @@ const fs = require("fs-extra")
 const path = require("path")
 const puppeteer = require('puppeteer')
 const { Parser } = require('json2csv')
+const { Types } = require('mongoose')
 
 const { getTemplate } = require("./emailTemplate")
 const sendMail = require('../utils/mailer')
@@ -227,11 +228,14 @@ exports.uploadDeck = async (req, res) => {
                 .on('error', reject)
         })
 
+        var errorInfo = false
 
         for (const row of rows) {
             const evaluator = await User.findOne({ emailAddress: row['Evaluator Email'] })
 
-            if (!evaluator) throw new Error(`Evaluator not found: ${row['Evaluator Email']}`)
+            if (evaluator == null && row['Evaluator Email'] == '') {
+                throw new Error(`Evaluator not found: ${row['Evaluator Email']} OR Evalutor is not defined for packet no. ${row['Packet No.']}`)
+            }
 
             const deck = {
                 examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
@@ -247,7 +251,7 @@ exports.uploadDeck = async (req, res) => {
                 numberOfAnswerSheets: 0,
                 roomNumber: row['Room'],
                 shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
-                qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_${evaluator.firstName} ${evaluator.lastName}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}`
+                qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}_${new Types.ObjectId()}`
             }
 
             const createdDeck = await Deck.create(deck)
@@ -364,13 +368,40 @@ exports.getDecks = async (req, res) => {
     }
 }
 
+exports.tempDeleteData = async (req, res) => {
+    try {
+        const cutoffDate = new Date('2025-05-15T00:00:00Z').getTime() / 1000
+
+        const result = await Deck.find({
+            examDate: { $gte: cutoffDate },
+            $or: [
+                {
+                    school: 'SOCS'
+                },
+                {
+                    school: 'SOHST'
+                }
+            ]
+        })
+
+        res.json({ count: result })
+
+
+
+        console.log(`Deleted ${result.deletedCount} decks with exam on or after 14 May 2025`);
+    } catch (err) {
+        res.status(500).json({ error: true })
+    }
+}
+
+
 exports.exportDecks = async (req, res) => {
     try {
 
         const { sortBy = 'createdAt', sortOrder = 'desc', search } = req.query
 
         let query = {}
-        
+
         if (search) {
             query.$or = [
                 { programName: { $regex: search, $options: 'i' } },
@@ -382,7 +413,7 @@ exports.exportDecks = async (req, res) => {
                 { qrCodeString: { $regex: search, $options: 'i' } }
             ]
         }
-        
+
         const response = await Deck.find(query)
             .populate({
                 path: 'evaluator',
@@ -390,25 +421,36 @@ exports.exportDecks = async (req, res) => {
             })
             .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
             .lean()
-        
-            const data = response.map(item => {
 
-            
-                return {
-                    ...item,
-                    evaluatorFirstName: item.evaluator?.firstName || '',
-                    evaluatorLastName: item.evaluator?.lastName || '',
-                    evaluatorEmail: item.evaluator?.emailAddress || '',
-                    evaluatorSapId: item.evaluator?.sapId || '',
-                }
-            })
+        function formatDateOnly(value) {
+            if (!value) return ''
+            const date = new Date(value * 1000)
+            return isNaN(date.getTime()) ? '' : date.toLocaleString('en-IN', { dateStyle: 'short' })
+        }
 
-            function isValidDate(value) {
-                const date = new Date(value)
-                return !isNaN(date.getTime())
+        function formatDateTime(value) {
+            if (!value) return ''
+            const date = new Date(value * 1000)
+            return isNaN(date.getTime()) ? '' : date.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+        }
+        const data = response.map(item => {
+
+
+            return {
+                ...item,
+                evaluatorFirstName: item.evaluator?.firstName || '',
+                evaluatorLastName: item.evaluator?.lastName || '',
+                evaluatorEmail: item.evaluator?.emailAddress || '',
+                evaluatorSapId: item.evaluator?.sapId || '',
+                ExamDate: formatDateOnly(item.examDate),
+                PickUpTimestamp: formatDateTime(item.pickUpTimestamp),
+                DropTimestamp: formatDateTime(item.dropTimestamp),
+
             }
-        
+        })
+
         const fields = [
+            '_id',
             'programName',
             'courseCode',
             'courseName',
@@ -435,10 +477,10 @@ exports.exportDecks = async (req, res) => {
             'createdAt',
             'updatedAt'
         ]
-        
+
         const json2csvParser = new Parser({ fields })
         const csv = json2csvParser.parse(data)
-        
+
         res.header('Content-Type', 'text/csv')
         res.attachment(`deck-data-${new Date()}.csv`)
         res.send(csv)
@@ -492,7 +534,7 @@ exports.getDeckById = async (req, res) => {
             qrString
         } = req.params
 
-        const response = await Deck.findOne({ qrCodeString: qrString })
+        const response = await Deck.findOne({ qrCodeString: qrString }).populate("evaluator", "firstName lastName emailAddress")
 
         if (!response)
             return res.status(404).json({
@@ -573,13 +615,13 @@ exports.updateDeck = async (req, res) => {
     try {
 
         const {
-            deckId,
+            _id,
             update
         } = req.body
 
         const response = await Deck.findByIdAndUpdate(
             {
-                _id: deckId
+                _id: _id
             },
             update,
             {
@@ -664,31 +706,47 @@ exports.changeStatusOfDeck = async (req, res) => {
             }
         ).populate("evaluator")
 
+        let subject = '';
+        if (response.statusOfDeck === 'PICKED_UP') {
+            subject = `Answer Sheets Status: Picked up on ${new Date(response.pickUpTimestamp * 1000).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "long" })} (${response.qrCodeString})`;
+        } else if (response.statusOfDeck === 'DROPPED') {
+            subject = `Answer Sheets Status: Dropped off on ${new Date(response.dropTimestamp * 1000).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "long" })} (${response.qrCodeString})`;
+        }
         sendMail({
             to: `${response.evaluator.emailAddress}`,
-            subject: `Answer Sheets ${response.statusOfDeck} From SRE: ${response.qrCodeString}`,
+            subject: subject,
             html: `
+                <html>
+                    <body>
+                        <h3>Answer Sheets Notification</h3>
+                        <p>Dear ${response.evaluator.firstName},</p>
+                        ${response.statusOfDeck == 'PICKED_UP' ? `<p>The answer sheets have been <strong>picked up</strong> on <strong>${new Date(response.pickUpTimestamp * 1000).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "long" })}</strong>.</p>` : ''}
+                        ${response.statusOfDeck == 'DROPPED' ? `<p>The answer sheets have been <strong>dropped off</strong> on <strong>${new Date(response.dropTimestamp * 1000).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "long" })}</strong>.</p>` : ''}
 
-<html>
-            <body>
-                <h3>Answer Sheets Notification</h3>
-                <p>Hello ${response.evaluator.firstName},</p>
-                <p>The answer sheets have been marked as <strong>${response.statusOfDeck}</strong>.</p>
-                <p>Details:</p>
-                <table border="1" cellpadding="5" cellspacing="0">
-                    <tr>
-                        <td><strong>QR Code</strong></td>
-                        <td>${response.qrCodeString}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Status</strong></td>
-                        <td>${response.statusOfDeck}</td>
-                    </tr>
-                </table>
-                <p>Please take the necessary actions if required.</p>
-                <p>Regards,<br/>SRE Team</p>
-            </body>
-        </html>
+                        <p>Details:</p>
+                        <table border="1" cellpadding="5" cellspacing="0">
+                            <tr>
+                                <td><strong>QR Code</strong></td>
+                                <td>${response.qrCodeString}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status</strong></td>
+                                <td>${response.statusOfDeck}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Number Of Total Students</strong></td>
+                                <td>${response.studentCount}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Number Of Students Present</strong></td>
+                                <td>${response.numberOfAnswerSheets}</td>
+                            </tr>
+                        </table>
+                        <p>Please take the necessary actions if required.</p>
+                        <p>Regards,<br/>COE Team</p>
+                        <p style="font-size:4px;">*This is an automated mail*</p>
+                    </body>
+                </html>
             `
         })
 

@@ -6,7 +6,9 @@ const {
     changePassword,
     deleteFaculty,
     changeRole,
-    getUserById
+    getUserById,
+    deleteUserById,
+    exportUsers
 } = require('../controllers/user')
 const authorizeRoles = require('../middlewares/permission')
 
@@ -52,6 +54,18 @@ router.delete(
     authenticate,
     authorizeRoles(['ADMIN']),
     deleteFaculty
+)
+
+router.get(
+    '/export',
+    exportUsers
+)
+
+router.put(
+    '/delete-by-id',
+    authenticate,
+    authorizeRoles(['ADMIN']),
+    deleteUserById
 )
 
 module.exports = router

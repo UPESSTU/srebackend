@@ -20,7 +20,8 @@ const {
     deleteAllDecks,
     generatePamplets,
     generatePampletsPdf,
-    exportDecks
+    exportDecks,
+    tempDeleteData
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -51,6 +52,11 @@ router.put(
     authorizeRoles(['ADMIN', 'MODERATOR']),
     updateDeck
 )
+
+// router.get(
+//     '/delete-temp',
+//     tempDeleteData
+// )
 
 router.get(
     '/all', 

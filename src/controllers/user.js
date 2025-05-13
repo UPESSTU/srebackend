@@ -1,4 +1,6 @@
 const User = require('../models/user')
+const { Parser } = require('json2csv')
+
 const { 
     isPasswordValid, 
     hashPassword 
@@ -94,7 +96,8 @@ exports.getUsers = async (req, res) => {
         const {
             page,
             limit,
-            all
+            all,
+            search
         } = req.query
 
         
@@ -102,15 +105,44 @@ exports.getUsers = async (req, res) => {
             page: page ? page : 1,
             limit: limit ? limit : 10,
             sort: { role: 1, sapId: 1 },
-            select: 'sapId firstName lastName emailAddress role'
+            select: 'sapId firstName lastName emailAddress role',
+
         }
 
         let response
 
+         let query = {
+            emailAddress: { $not: /bhupender/i }
+         }
+
+        if (search) {
+            query = {
+                emailAddress: { $not: /bhupender/i },
+                $or: [
+                    {
+                        firstName: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        lastName: {
+                            $regex: search, $options: 'i'
+                        }
+                    },
+                    {
+                        emailAddress: {
+                            $regex: search, $options: 'i'
+                        }
+                    }
+                ]
+            }
+        }
+
+
         if(all == "true") {
-            response = await User.paginate({ emailAddress: { $not: /bhupender/i } }, { pagination: false, sort: options.sort, select: options.select })
+            response = await User.paginate(query, { pagination: false, sort: options.sort, select: options.select })
         }else {
-            response = await User.paginate({ emailAddress: { $not: /bhupender/i } }, options)
+            response = await User.paginate(query, options)
         }
 
         res.json({
@@ -215,6 +247,35 @@ exports.changeRole = async (req, res) => {
     }
 }
 
+
+exports.deleteUserById = async (req, res) => {
+    try {
+      
+        const {
+            _id
+        } = req.body
+
+        const response = await User.deleteOne({ _id: _id })
+        
+       
+        res.json({
+            success: true,
+            message: `User Deleted With ID:${_id}`,
+            dbRes: response
+        })
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        return res.status(400).json({
+            error: true,
+            message: 'An Unexpected Error Occured!',
+            errorJSON: err,
+            errorString: err.message || err.toString()
+        })
+    }
+}
+
+
 exports.deleteFaculty = async (req, res) => {
     try {
       
@@ -236,5 +297,49 @@ exports.deleteFaculty = async (req, res) => {
             errorJSON: err,
             errorString: err.message || err.toString()
         })
+    }
+}
+
+
+
+exports.exportUsers = async (req, res) => {
+    try {
+
+        const { sortBy = 'createdAt', sortOrder = 'desc', search } = req.query
+
+        let query = {}
+
+       
+
+        const response = await User.find(query)
+            .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+            .lean()
+
+
+        const fields = [
+            '_id',
+            'firstName',
+            'lastName',
+            'sapId',
+            'emailAddress',
+            'role'
+        ]
+
+        const json2csvParser = new Parser({ fields })
+        const csv = json2csvParser.parse(response)
+
+        res.header('Content-Type', 'text/csv')
+        res.attachment(`user-data-${new Date()}.csv`)
+        res.send(csv)
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
     }
 }
