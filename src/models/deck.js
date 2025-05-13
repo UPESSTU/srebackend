@@ -33,7 +33,8 @@ const deckSchema = new Schema({
     },
     packetNumber: {
         type: String,
-        required: true
+        required: true,
+        unique: true,
     },
     roomNumber: {
         type: String,
