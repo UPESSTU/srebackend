@@ -101,7 +101,9 @@ exports.generatePamplets = async (req, res) => {
         const {
             page,
             limit,
-            examName
+            examName,
+            startDate,
+            endDate
         } = req.query
 
 
@@ -116,7 +118,13 @@ exports.generatePamplets = async (req, res) => {
             ]
         }
 
-        const response = await Deck.paginate({}, options)
+        
+        const response = await Deck.paginate({
+             examDate: {
+                $gte: startDate,
+                $lte: endDate
+            }
+        }, options)
 
         const updatedResponse = await Promise.all(
             response.docs.map(async (item) => {
@@ -656,6 +664,31 @@ exports.deleteAllDecks = async (req, res) => {
         res.json({
             success: true,
             message: `Deleted All!`,
+        })
+
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+
+    }
+}
+
+
+exports.deleteById = async (req, res) => {
+    try {
+
+        const { deckId } = req.params
+        const response = await Deck.deleteOne({ _id: deckId})
+
+        res.json({
+            success: true,
+            message: `Deleted!`,
         })
 
 

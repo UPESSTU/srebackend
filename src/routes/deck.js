@@ -21,7 +21,8 @@ const {
     generatePamplets,
     generatePampletsPdf,
     exportDecks,
-    tempDeleteData
+    tempDeleteData,
+    deleteById
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -63,6 +64,14 @@ router.get(
     authenticate, 
     authorizeRoles(['ADMIN', 'MODERATOR']), 
     getDecks
+
+)
+
+router.delete(
+    '/deletebyid/:deckId', 
+    authenticate, 
+    authorizeRoles(['ADMIN']), 
+    deleteById
 
 )
 
