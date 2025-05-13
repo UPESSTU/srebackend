@@ -96,6 +96,47 @@ exports.generatePampletsPdf = async (req, res) => {
     }
 }
 
+exports.countDecks = async (req, res) => {
+    try {
+        const {
+            startDate,
+            endDate,
+            schoolName
+        } = req.query
+
+
+     
+
+        const schools = schoolName ? schoolName.split(",") : false
+
+        const query = {
+            examDate: {
+                $gte: startDate || 1,
+                $lte: endDate || Infinity
+            }
+        }
+
+        schools ? query.school = schools : null
+
+
+        const response = await Deck.countDocuments(query)
+
+        res.json({
+            success: true,
+            message: 'Deck Counted',
+            dbRes: response
+        })
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`)
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurrred",
+            errorJSON: err,
+            errorString: err.toString()
+        })
+    }
+}
+
 exports.generatePamplets = async (req, res) => {
     try {
         const {
@@ -103,7 +144,8 @@ exports.generatePamplets = async (req, res) => {
             limit,
             examName,
             startDate,
-            endDate
+            endDate,
+            schoolName
         } = req.query
 
 
@@ -118,13 +160,19 @@ exports.generatePamplets = async (req, res) => {
             ]
         }
 
-        
-        const response = await Deck.paginate({
-             examDate: {
+        const schools = schoolName ? schoolName.split(",") : false
+
+        const query = {
+            examDate: {
                 $gte: startDate,
                 $lte: endDate
             }
-        }, options)
+        }
+
+        schools ? query.school = schools : null
+
+
+        const response = await Deck.paginate(query, options)
 
         const updatedResponse = await Promise.all(
             response.docs.map(async (item) => {
@@ -225,7 +273,6 @@ exports.uploadDeck = async (req, res) => {
 
     const filePath = req.file.path
     const rows = []
-    const insertedDecks = []
 
     try {
         await new Promise((resolve, reject) => {
@@ -235,48 +282,62 @@ exports.uploadDeck = async (req, res) => {
                 .on('end', resolve)
                 .on('error', reject)
         })
-
-        var errorInfo = false
+        let insertedDecks = []
+        let errorArray = []
 
         for (const row of rows) {
-            const evaluator = await User.findOne({ emailAddress: row['Evaluator Email'] })
+            try {
+                const evaluator = await User.findOne({ emailAddress: row['Evaluator Email'] })
 
-            if (evaluator == null && row['Evaluator Email'] == '') {
-                throw new Error(`Evaluator not found: ${row['Evaluator Email']} OR Evalutor is not defined for packet no. ${row['Packet No.']}`)
+                if (!evaluator || row['Evaluator Email'] == '') {
+                    row.error = "Evaluator Doesn't Exist"
+                    errorArray.push(row)
+                    continue
+                }
+
+                const deck = {
+                    examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
+                    programName: row['Program Name'],
+                    courseCode: row['Course Code'],
+                    courseName: row['Course'],
+                    school: row['School'],
+                    evaluator: evaluator._id,
+                    packetNumber: row['Packet No.'],
+                    semester: row['Sem'],
+                    studentCount: row['ST.Count'],
+                    rackNumber: row['Rack No.'],
+                    numberOfAnswerSheets: 0,
+                    roomNumber: row['Room'],
+                    shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
+                    qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}_${new Types.ObjectId()}`
+                }
+
+                const createdDeck = await Deck.create(deck)
+                insertedDecks.push(createdDeck._id)
+
+            } catch (err) {
+                row.error = err.message || 'Unknown Error'
+                errorArray.push(row)
             }
-
-            const deck = {
-                examDate: Math.floor(new Date(row['Date']).getTime() / 1000),
-                programName: row['Program Name'],
-                courseCode: row['Course Code'],
-                courseName: row['Course'],
-                school: row['School'],
-                evaluator: evaluator._id,
-                packetNumber: row['Packet No.'],
-                semester: row['Sem'],
-                studentCount: row['ST.Count'],
-                rackNumber: row['Rack No.'],
-                numberOfAnswerSheets: 0,
-                roomNumber: row['Room'],
-                shiftOfExam: row['Time'] === 'M' ? 'MORNING' : 'EVENING',
-                qrCodeString: `${row['School']}_${row['Date']}_${row['Time']}_${row['Course Code']}_${row['Room']}_${row['Program Name']}_St.Count_${row['ST.Count']}_Packet_${row['Packet No.']}_${new Types.ObjectId()}`
-            }
-
-            const createdDeck = await Deck.create(deck)
-            insertedDecks.push(createdDeck._id)
         }
+
+        const fields = Object.keys(errorArray[0])
+
+        const json2csvParser = new Parser({ fields })
+        const csv = json2csvParser.parse(errorArray)
+
+        const fileNamePath = path.join(__dirname, '..', '..', 'public', 'static', 'error-data.csv')
+        fs.writeFileSync(fileNamePath, csv)
+
 
         return res.status(201).json({
             success: true,
-            message: 'Decks were imported successfully!',
-            deckCount: insertedDecks.length
+            message: `Decks were ${insertedDecks.length} imported successfully! & ${errorArray.length} decks failed.`,
+            deckCount: rows.length,
+            errorFile: '/static/error-data.csv'
         })
 
     } catch (err) {
-        if (insertedDecks.length > 0) {
-            await Deck.deleteMany({ _id: { $in: insertedDecks } })
-        }
-
         logger.error(`Upload Error: ${err.message || err.toString()}`)
         return res.status(500).json({
             success: false,
@@ -684,7 +745,7 @@ exports.deleteById = async (req, res) => {
     try {
 
         const { deckId } = req.params
-        const response = await Deck.deleteOne({ _id: deckId})
+        const response = await Deck.deleteOne({ _id: deckId })
 
         res.json({
             success: true,

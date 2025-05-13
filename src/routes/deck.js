@@ -22,7 +22,8 @@ const {
     generatePampletsPdf,
     exportDecks,
     tempDeleteData,
-    deleteById
+    deleteById,
+    countDecks
 } = require('../controllers/deck')
 
 const router = express.Router()
@@ -80,6 +81,13 @@ router.get(
     authenticate, 
     authorizeRoles(['ADMIN', 'FACULTY', 'MODERATOR']), 
     getAssingedDecks
+)
+
+router.get(
+    '/count', 
+    authenticate, 
+    authorizeRoles(['ADMIN', 'FACULTY', 'MODERATOR']), 
+    countDecks
 )
 
 router.get(

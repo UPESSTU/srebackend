@@ -47,8 +47,9 @@ app.use(cors({
     credentials: true, //Are Credentials Required
 }))
 
+app.use('/static', express.static(path.join(__dirname, '..', 'public', 'static')))
+
 app.use(express.json())
-app.use(express.static(path.join(__dirname, 'public')))
 
 app.get('/ping', (req, res) => res.json({ message: "Pong!" }))
 

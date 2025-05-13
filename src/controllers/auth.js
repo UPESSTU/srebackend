@@ -4,6 +4,8 @@ const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const jwt = require('jsonwebtoken')
+const { Parser } = require('json2csv')
+
 
 const {
     randomUUID
@@ -232,12 +234,23 @@ exports.addFacultyBulk = async (req, res) => {
         const filePath = req.file.path
 
         const faculties = new Array()
-        const email = new Array()
+        const errorArray = new Array()
 
-        fs.createReadStream(filePath)
-            .pipe(csvParser())
-            .on('data', async (row) => {
+
+        const rows = []
+
+        try {
+            await new Promise((resolve, reject) => {
+                fs.createReadStream(filePath)
+                    .pipe(csvParser())
+                    .on('data', (row) => rows.push(row))
+                    .on('end', resolve)
+                    .on('error', reject)
+            })
+
+            for (const row of rows) {
                 try {
+
                     const salt = randomUUID()
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
@@ -259,65 +272,61 @@ exports.addFacultyBulk = async (req, res) => {
                         role: row.role ? row.role : 'FACULTY',
                         password: password
                     }
-                    faculties.push(user)
-                    if(emailModAdmin.role != 'FACULTY') {
-                        email.push(emailModAdmin)
-                    }
-                } catch (err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                }
-            })
-            .on('end', async () => {
-                try {
-                    if (faculties.length === 0) {
-                        return res.status(400).json({
-                            error: true,
-                            message: 'An Unexpected Error Occured!',
-                        })
-                    }
-                    await User.insertMany(faculties)
-                    logger.info(`${faculties.length} faculty were successfully imported.`)
-
-                    email.map(async (user) => {
-                        try {
-                            await sendMail({
-                                to: `${user.emailAddress}`,
-                                subject: `Welcome to SRE Portal - Your Account Details`,
-                                html: `<p>Dear ${user.firstName},</p>
+                    const createdUser = await User.create(user)
+                    faculties.push(createdUser._id)
+                    // if (emailModAdmin.role != 'FACULTY') {
+                    //     await sendMail({
+                    //         to: `${user.emailAddress}`,
+                    //         subject: `Welcome to SRE Portal - Your Account Details`,
+                    //         html: `<p>Dear ${user.firstName},</p>
                    
-                                                           <p>Welcome to SRE Portal! We&rsquo;re excited to have you on board. Below are your account details:</p>
+                    //             <p>Welcome to SRE Portal! We&rsquo;re excited to have you on board. Below are your account details:</p>
                    
-                                                           <p>Login Credentials: Email: ${user.emailAddress} Temporary Password: ${user.password}</p>
+                    //             <p>Login Credentials: Email: ${user.emailAddress} Temporary Password: ${user.password}</p>
                    
-                                                           <p>Login Here: <a href="https://10.2.4.37">https://10.2.4.37</a></p>
+                    //             <p>Login Here: <a href="https://10.2.4.37">https://10.2.4.37</a></p>
                    
-                                                           <p>For security reasons, please change your password upon first login by navigating to the &quot;Your Profile&quot; section.</p>
+                    //             <p>For security reasons, please change your password upon first login by navigating to the &quot;Your Profile&quot; section.</p>
                    
-                                                           <p>If you have any questions or need assistance, feel free to reach out to our support team at singh.bhupender@proton.me.</p>
+                    //             <p>If you have any questions or need assistance, feel free to reach out to our support team at singh.bhupender@proton.me.</p>
                    
-                                                           <p>Best regards, The SRE Portal Team</p>
-                                               `
-                            })
-
-                        } catch (err) {
-                            logger.error(`Error: Cannot Send Email To User: ${user.emailAddress} With Password: ${user.password}`)
-                        }
-                    })
-                    return res.status(201).json({
-                        success: true,
-                        message: `${faculties.length} faculty were imported!`
-                    })
+                    //             <p>Best regards, The SRE Portal Team</p>
+                    //                            `
+                    //     })
+                    // }
 
                 } catch (err) {
-                    logger.error(`Error: ${err.message || err.toString()}`)
-                    return res.status(400).json({
-                        error: true,
-                        message: 'An Unexpected Error Occured!',
-                        errorJSON: err,
-                        errorString: err.message || err.toString()
-                    })
+                    row.error = err.message || 'Unknown Error'
+                    errorArray.push(row)
                 }
+            }
+            if(errorArray.length > 0) {
+                const fields = Object.keys(errorArray[0])
+
+                const json2csvParser = new Parser({ fields })
+                const csv = json2csvParser.parse(errorArray)
+
+                const fileNamePath = path.join(__dirname, '..', '..', 'public', 'static', 'error-user.csv')
+
+                fs.writeFileSync(fileNamePath, csv)
+            }
+
+            return res.status(201).json({
+                success: true,
+                message: `Users were ${faculties.length} imported successfully! & ${errorArray.length} users failed.`,
+                userCount: rows.length,
+                errorFile: errorArray.length > 0 ? '/static/error-user.csv' : null
             })
+
+        } catch (err) {
+            console.log(err)
+            logger.error(`Upload Error: ${err.message || err.toString()}`)
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to upload users.',
+                error: err.message || err.toString()
+            })
+        }
 
 
     } catch (err) {

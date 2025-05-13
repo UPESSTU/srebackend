@@ -4,3 +4,4 @@ logs/
 yarn.lock
 src/uploads
 *.pdf
+public/static/
