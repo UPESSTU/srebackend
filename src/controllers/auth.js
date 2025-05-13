@@ -5,8 +5,8 @@ const fs = require('fs')
 const path = require('path')
 const jwt = require('jsonwebtoken')
 
-const { 
-    randomUUID 
+const {
+    randomUUID
 } = require('crypto')
 
 const {
@@ -87,9 +87,9 @@ exports.signIn = async (req, res) => {
         time.setTime(time.getTime() + 3600 * 24 * 1000)
 
         res.cookie(process.env.AUTH_COOKIE_NAME, token, {
-          expire: time,
-          path: "/",
-          domain: process.env.DOMAIN,
+            expire: time,
+            path: "/",
+            domain: process.env.DOMAIN,
         })
 
         res.status(200).json({
@@ -232,18 +232,16 @@ exports.addFacultyBulk = async (req, res) => {
         const filePath = req.file.path
 
         const faculties = new Array()
-        const emailFaculties = new Array()
-        
+        const email = new Array()
+
         fs.createReadStream(filePath)
             .pipe(csvParser())
             .on('data', async (row) => {
-                console.log(row)
-
                 try {
                     const salt = randomUUID()
                     const password = Math.random().toString(36).slice(-6)
                     const encpy_password = await hashPassword(password, salt)
-                    const faculty = {
+                    const user = {
                         sapId: row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
@@ -253,7 +251,7 @@ exports.addFacultyBulk = async (req, res) => {
                         encpy_password: encpy_password,
                         role: row.role ? row.role : 'FACULTY'
                     }
-                    const emailFaculty = {
+                    const emailModAdmin = {
                         sapId: row.sapId,
                         firstName: row.firstName,
                         lastName: row.lastName,
@@ -261,25 +259,50 @@ exports.addFacultyBulk = async (req, res) => {
                         role: row.role ? row.role : 'FACULTY',
                         password: password
                     }
-                    console.log(emailFaculty)
-                    faculties.push(faculty)
-                    emailFaculties.push(emailFaculty)
-                }catch(err) {
+                    faculties.push(user)
+                    if(emailModAdmin.role != 'FACULTY') {
+                        email.push(emailModAdmin)
+                    }
+                } catch (err) {
                     logger.error(`Error: ${err.message || err.toString()}`)
                 }
             })
             .on('end', async () => {
                 try {
-                    if(faculties.length === 0){
+                    if (faculties.length === 0) {
                         return res.status(400).json({
                             error: true,
                             message: 'An Unexpected Error Occured!',
-                        }) 
+                        })
                     }
-                    await User.insertMany(faculties);
+                    await User.insertMany(faculties)
                     logger.info(`${faculties.length} faculty were successfully imported.`)
-                    
 
+                    email.map(async (user) => {
+                        try {
+                            await sendMail({
+                                to: `${user.emailAddress}`,
+                                subject: `Welcome to SRE Portal - Your Account Details`,
+                                html: `<p>Dear ${user.firstName},</p>
+                   
+                                                           <p>Welcome to SRE Portal! We&rsquo;re excited to have you on board. Below are your account details:</p>
+                   
+                                                           <p>Login Credentials: Email: ${user.emailAddress} Temporary Password: ${user.password}</p>
+                   
+                                                           <p>Login Here: <a href="https://10.2.4.37">https://10.2.4.37</a></p>
+                   
+                                                           <p>For security reasons, please change your password upon first login by navigating to the &quot;Your Profile&quot; section.</p>
+                   
+                                                           <p>If you have any questions or need assistance, feel free to reach out to our support team at singh.bhupender@proton.me.</p>
+                   
+                                                           <p>Best regards, The SRE Portal Team</p>
+                                               `
+                            })
+
+                        } catch (err) {
+                            logger.error(`Error: Cannot Send Email To User: ${user.emailAddress} With Password: ${user.password}`)
+                        }
+                    })
                     return res.status(201).json({
                         success: true,
                         message: `${faculties.length} faculty were imported!`
@@ -452,12 +475,12 @@ exports.changePassword = async (req, res) => {
             }
         )
 
-        if(!decodeToken)
+        if (!decodeToken)
             return res.status(401).json({
                 error: true,
                 message: 'Reset Password Token Invalid!'
-            })  
-            
+            })
+
         const response = await User.findOne({
             resetPasswordToken: decodeToken._id
         })
@@ -466,8 +489,8 @@ exports.changePassword = async (req, res) => {
             return res.status(401).json({
                 error: true,
                 message: 'Reset Password Token Invalid!'
-            })        
-        
+            })
+
         const encpy_password = await hashPassword(password, response.salt)
 
         const update = await User.updateOne(
@@ -510,20 +533,20 @@ exports.passwordChange = async (req, res) => {
 
         const response = await User.findOne({ _id: req.auth._id })
 
-        if(!response) 
+        if (!response)
             return res.status(400).json({
                 error: true,
                 message: 'Something unexpected happened!'
             })
-       
-        const oldEncpyPassword = await hashPassword(oldPassword, response.salt) 
-        
-        if(response.encpy_password !== oldEncpyPassword) 
+
+        const oldEncpyPassword = await hashPassword(oldPassword, response.salt)
+
+        if (response.encpy_password !== oldEncpyPassword)
             return res.status(401).json({
                 error: true,
                 message: 'Old password incorrect!'
             })
-       
+
 
         const encpy_password = await hashPassword(newPassword, response.salt)
 
