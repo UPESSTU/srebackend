@@ -438,27 +438,21 @@ exports.getDecks = async (req, res) => {
 }
 
 exports.tempDeleteData = async (req, res) => {
+
     try {
+
         const cutoffDate = new Date('2025-05-15T00:00:00Z').getTime() / 1000
 
-        const result = await Deck.find({
+        const result = await Deck.deleteMany({
             examDate: { $gte: cutoffDate },
-            $or: [
-                {
-                    school: 'SOCS'
-                },
-                {
-                    school: 'SOHST'
-                }
-            ]
+            school:'SOCS'
         })
 
         res.json({ count: result })
 
-
-
         console.log(`Deleted ${result.deletedCount} decks with exam on or after 14 May 2025`);
     } catch (err) {
+        console.log(err)
         res.status(500).json({ error: true })
     }
 }
@@ -770,8 +764,10 @@ exports.changeStatusOfDeck = async (req, res) => {
 
         const { action } = req.query
         const {
-            qrCodeString
+            qrCodeString,
+            message
         } = req.body
+
 
         const deck = await Deck.findOne({ qrCodeString: qrCodeString })
 
@@ -836,6 +832,7 @@ exports.changeStatusOfDeck = async (req, res) => {
                                 <td>${response.numberOfAnswerSheets}</td>
                             </tr>
                         </table>
+                        ${message ? `<p>${message}</p>`: ''}
                         <p>Please take the necessary actions if required.</p>
                         <p>Regards,<br/>COE Team</p>
                         <p style="font-size:4px;">*This is an automated mail*</p>
@@ -843,7 +840,6 @@ exports.changeStatusOfDeck = async (req, res) => {
                 </html>
             `
         })
-
         res.json({
             success: true,
             message: `Updated!`,

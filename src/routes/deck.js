@@ -55,10 +55,10 @@ router.put(
     updateDeck
 )
 
-// router.get(
-//     '/delete-temp',
-//     tempDeleteData
-// )
+router.get(
+    '/delete-temp',
+    tempDeleteData
+)
 
 router.get(
     '/all', 
