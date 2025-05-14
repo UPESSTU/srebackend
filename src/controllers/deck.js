@@ -765,7 +765,6 @@ exports.changeStatusOfDeck = async (req, res) => {
         const { action } = req.query
         const {
             qrCodeString,
-            message
         } = req.body
 
 
@@ -832,7 +831,11 @@ exports.changeStatusOfDeck = async (req, res) => {
                                 <td>${response.numberOfAnswerSheets}</td>
                             </tr>
                         </table>
-                        ${message ? `<p>${message}</p>`: ''}
+                        <strong>
+                            <p style="color:red; font-size: 11px;">
+                                Note: Kindly return the evaluated answer sheets in the same envelope in which it was received.
+                            </p>
+                        </strong>
                         <p>Please take the necessary actions if required.</p>
                         <p>Regards,<br/>COE Team</p>
                         <p style="font-size:4px;">*This is an automated mail*</p>
