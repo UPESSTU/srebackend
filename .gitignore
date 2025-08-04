@@ -1,0 +1,6 @@
+node_modules/
+logs/
+.env
+yarn.lock
+src/uploads
+*.pdf
