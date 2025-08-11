@@ -137,6 +137,74 @@ exports.countDecks = async (req, res) => {
     }
 }
 
+exports.generateSelectedQrCodes = async (req, res) => {
+    try {
+        const { selectedIds, examName } = req.body;
+        
+        // Convert string IDs to ObjectIds
+        const objectIds = selectedIds.map(id => new Types.ObjectId(id));
+        
+        // Fetch selected records
+        const selectedRecords = await Deck.find({ _id: { $in: objectIds } }).populate('evaluator').lean();
+        
+        // Process records with QR codes
+        const updatedRecords = await Promise.all(
+            selectedRecords.map(async (item) => {
+                const qrCodeData = item.qrCodeString;
+                const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
+                const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                });
+                const examTime = item.shiftOfExam === 'MORNING' ? '10:00AM' : '2:00PM';
+                return {
+                    ...item,
+                    qrCode: qrCodeUrl,
+                    examDate: examDate,
+                    examTime: examTime,
+                };
+            })
+        );
+
+        const data = {
+            data: updatedRecords,
+            logo: '/upes.png',
+            examName: examName
+        };
+
+        // Render the template using the specific template for selected QR codes
+        const html = await renderTemplate("selected-pdf", data);
+
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.setContent(html, {
+            waitUntil: 'networkidle2'
+        });
+        
+        const pdfPath = path.join(__dirname, '..', 'public', 'selected-qrcodes.pdf');
+        await page.pdf({
+            path: pdfPath,
+            margin: {
+                left: '5mm',
+                right: '5mm',
+            }
+        });
+
+        await browser.close();
+        res.sendFile(pdfPath);
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`);
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurred",
+            errorJSON: err,
+            errorString: err.toString()
+        });
+    }
+};
+
 exports.generatePamplets = async (req, res) => {
     try {
         const {
@@ -391,44 +459,47 @@ exports.getDecks = async (req, res) => {
 
         // Handle general search
         if (search) {
-            query = {
-                $or: [
-                    {
-                        programName: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        courseCode: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        courseName: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        school: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        semester: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        statusOfDeck: {
-                            $regex: search, $options: 'i'
-                        }
-                    },
-                    {
-                        qrCodeString: {
-                            $regex: search, $options: 'i'
-                        }
-                    }
-                ]
+            // Special handling for evaluator email search
+            if (search.includes('@') && search.includes('.')) {
+                // Looks like an email address - try to find evaluator
+                const evaluator = await User.findOne({ 
+                    emailAddress: { $regex: search, $options: 'i' } 
+                });
+                
+                if (evaluator) {
+                    // If found, search by evaluator ID
+                    query = { evaluator: evaluator._id };
+                } else {
+                    // If no matching evaluator, search other fields
+                    query = {
+                        $or: [
+                            { programName: { $regex: search, $options: 'i' } },
+                            { courseCode: { $regex: search, $options: 'i' } },
+                            { courseName: { $regex: search, $options: 'i' } },
+                            { school: { $regex: search, $options: 'i' } },
+                            { semester: { $regex: search, $options: 'i' } },
+                            { statusOfDeck: { $regex: search, $options: 'i' } },
+                            { qrCodeString: { $regex: search, $options: 'i' } },
+                            { packetNumber: { $regex: search, $options: 'i' } },
+                            { roomNumber: { $regex: search, $options: 'i' } }
+                        ]
+                    };
+                }
+            } else {
+                // Regular search
+                query = {
+                    $or: [
+                        { programName: { $regex: search, $options: 'i' } },
+                        { courseCode: { $regex: search, $options: 'i' } },
+                        { courseName: { $regex: search, $options: 'i' } },
+                        { school: { $regex: search, $options: 'i' } },
+                        { semester: { $regex: search, $options: 'i' } },
+                        { statusOfDeck: { $regex: search, $options: 'i' } },
+                        { qrCodeString: { $regex: search, $options: 'i' } },
+                        { packetNumber: { $regex: search, $options: 'i' } },
+                        { roomNumber: { $regex: search, $options: 'i' } }
+                    ]
+                };
             }
         }
 
@@ -444,6 +515,19 @@ exports.getDecks = async (req, res) => {
             } catch (err) {
                 logger.error(`Date parsing error: ${err.message}`);
             }
+        }
+        
+        // Handle date range filtering
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        
+        if (startDate && endDate) {
+            // Both startDate and endDate are provided, so filter by date range
+            query.examDate = {
+                $gte: Number(startDate),
+                $lte: Number(endDate)
+            };
+            logger.info(`Filtering by date range: ${startDate} to ${endDate}`);
         }
         if (programName) {
             query.programName = { $regex: programName, $options: 'i' };
@@ -476,22 +560,40 @@ exports.getDecks = async (req, res) => {
             query.numberOfAnswerSheets = parseInt(numberOfAnswerSheets);
         }
 
-        // Handle evaluator filtering after population
-        let evaluatorEmailFilter = null;
-        if (evaluatorName) {
-            evaluatorEmailFilter = evaluatorName;
+        // Handle evaluator email filtering properly
+        const evaluatorEmail = req.query['evaluator.emailAddress'];
+        
+        // If we have an evaluator email filter, we need to handle it specially
+        if (evaluatorEmail) {
+            // First, find the evaluator user by email
+            const evaluator = await User.findOne({ emailAddress: evaluatorEmail });
+            
+            if (evaluator) {
+                // If found, add the evaluator's ID to the query
+                query.evaluator = evaluator._id;
+            } else {
+                // If no matching evaluator found, return empty results
+                return res.json({
+                    success: true,
+                    message: `No evaluator found with email ${evaluatorEmail}`,
+                    dbRes: {
+                        docs: [],
+                        totalDocs: 0,
+                        limit: options.limit,
+                        page: options.page,
+                        totalPages: 0,
+                        hasNextPage: false,
+                        nextPage: null,
+                        hasPrevPage: false,
+                        prevPage: null,
+                        pagingCounter: 1
+                    }
+                });
+            }
         }
 
+        // Now we can paginate with the evaluator filter included in the query
         const response = await Deck.paginate(query, options)
-
-        // Filter by evaluator email if needed (since it's a populated field)
-        if (evaluatorEmailFilter) {
-            response.docs = response.docs.filter(doc => 
-                doc.evaluator && doc.evaluator.emailAddress === evaluatorEmailFilter
-            );
-            // Note: This doesn't affect totalDocs count, which might be slightly inaccurate
-            // For exact count, you'd need a more complex aggregation pipeline
-        }
 
         res.json({
             success: true,
@@ -1281,3 +1383,125 @@ exports.getFilterOptions = async (req, res) => {
         })
     }
 }
+
+exports.generateSelectedPamplets = async (req, res) => {
+    try {
+        // Handle both GET and POST requests
+        const { ids, examName } = req.method === 'POST' ? req.body : req.query;
+        
+        let deckIds;
+        if (req.method === 'POST') {
+            // For POST request, ids should be an array
+            if (!Array.isArray(ids)) {
+                return res.status(400).json({
+                    error: true,
+                    message: "Invalid format: ids should be an array"
+                });
+            }
+            deckIds = ids.map(id => new Types.ObjectId(id));
+        } else {
+            // For GET request, ids is a comma-separated string
+            if (!ids || typeof ids !== 'string') {
+                return res.status(400).json({
+                    error: true,
+                    message: "Invalid format: ids should be a comma-separated string"
+                });
+            }
+            deckIds = ids.split(',').map(id => new Types.ObjectId(id));
+        }
+        
+        if (!ids) {
+            return res.status(400).json({
+                error: true,
+                message: "No IDs provided"
+            });
+        }
+
+        // Split the comma-separated IDs and ensure they are valid ObjectIds
+        // const deckIds = ids.split(',').map(id => new Types.ObjectId(id));
+
+        // Find all selected decks
+        const decks = await Deck.find({ _id: { $in: deckIds } }).populate('evaluator').lean();
+
+        // Generate QR codes and format data for each deck
+        const updatedDecks = await Promise.all(
+            decks.map(async (item) => {
+                const qrCodeData = item.qrCodeString;
+                const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
+                const examDate = new Date(item.examDate * 1000).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                });
+                const examTime = item.shiftOfExam === 'MORNING' ? '10:00AM' : '2:00PM';
+                return {
+                    ...item,
+                    qrCode: qrCodeUrl,
+                    examDate: examDate,
+                    examTime: examTime,
+                };
+            })
+        );
+
+        // Prepare data for template
+        const data = {
+            data: updatedDecks,
+            logo: '/upes.png',
+            // Use provided exam name if available, otherwise use a default
+            examName: examName ? decodeURIComponent(examName) : 'Selected Decks'
+        };
+
+        // Render the template using the specific template for selected QR codes
+        const html = await renderTemplate("selected-pdf", data);
+
+        // Launch browser and create PDF
+        const browser = await puppeteer.launch({
+            args: ['--no-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, {
+            waitUntil: 'networkidle2'
+        });
+
+        // Generate PDF with optimized settings
+        const pdfPath = path.join(__dirname, '..', 'public', 'selected-pamplets.pdf');
+        await page.pdf({
+            path: pdfPath,
+            margin: {
+                left: '5mm',
+                right: '5mm',
+            },
+            format: 'A4',
+            printBackground: true,
+            preferCSSPageSize: true,
+        });
+
+        await browser.close();
+
+        // Create read stream for the PDF
+        const fileStream = fs.createReadStream(pdfPath);
+        
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=selected-pamplets.pdf');
+        
+        // Pipe the file to the response
+        fileStream.pipe(res);
+        
+        // Clean up the file after sending
+        fileStream.on('end', () => {
+            fs.unlink(pdfPath, (err) => {
+                if (err) logger.error(`Error deleting temporary PDF: ${err}`);
+            });
+        });
+
+    } catch (err) {
+        logger.error(`Error generating selected pamplets: ${err.message || err.toString()}`);
+        res.status(400).json({
+            error: true,
+            message: "An Unexpected Error Occurred",
+            errorJSON: err,
+            errorString: err.toString()
+        });
+    }
+};

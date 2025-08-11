@@ -22,6 +22,7 @@ const {
     deleteAllDecks,
     generatePamplets,
     generatePampletsPdf,
+    generateSelectedPamplets,
     exportDecks,
     tempDeleteData,
     deleteById,
@@ -169,5 +170,20 @@ router.get(
     getFilterOptions
 )
 
+// For backward compatibility
+router.get(
+    '/selected-pamplets.html',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    generateSelectedPamplets
+)
+
+// New endpoint for handling large number of IDs
+router.post(
+    '/selected-pamplets',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    generateSelectedPamplets
+)
 
 module.exports = router
