@@ -2,7 +2,11 @@ const express = require('express')
 
 const authenticate = require('../middlewares/authenticate')
 const authorizeRoles = require('../middlewares/permission')
-const { getTemplates, getTemplateById, addTemplate } = require('../controllers/emailTemplate')
+const { 
+    getTemplates, 
+    getTemplateById, 
+    addTemplate 
+} = require('../controllers/emailTemplate')
 const router = express.Router()
 
 router.get(

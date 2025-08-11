@@ -28,7 +28,8 @@ const
     deckRoutes = require('./routes/deck'),
     smtpRoutes = require('./routes/smtp'),
     emailTemplateRoutes = require('./routes/emailTemplate'),
-    analyticsRoutes = require('./routes/analytics')
+    analyticsRoutes = require('./routes/analytics'),
+    logsRoutes = require('./routes/logs')
 
 const { sendReminderToDrop } = require('./controllers/deck')
 
@@ -50,7 +51,7 @@ if (!DATABASE || DATABASE === 'undefined') {
 const app = express()
 
 app.use(cors({
-    origin: process.env.ORIGIN ? process.env.ORIGIN.split(",").map(origin => origin.trim()) : ['http://localhost:5173'], //Split The ORIGIN String into array
+    origin: process.env.ORIGIN ? process.env.ORIGIN.split(",").map(origin => origin.trim()) : ['http://10.2.4.37'], //Split The ORIGIN String into array
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'], // Methods Allowed
     allowedHeaders: ['Content-Type', 'Origin', 'X-Requested-With', 'Accept', 'x-client-key', 'x-client-token', 'x-client-secret', 'Authorization'], //Headers Allowed
     credentials: true, //Are Credentials Required
@@ -68,6 +69,7 @@ app.use('/api/v1/deck', deckRoutes)
 app.use('/api/v1/smtp', smtpRoutes)
 app.use('/api/v1/emailtemplate', emailTemplateRoutes)
 app.use('/api/v1/analytics', analyticsRoutes)
+app.use('/api/v1/logs', logsRoutes)
 
 
 

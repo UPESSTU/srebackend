@@ -1,5 +1,6 @@
 const express = require('express')
 const authenticate = require('../middlewares/authenticate')
+const auditLog = require('../middlewares/auditLogger')
 const {
     getProfile,
     getUsers,
@@ -37,7 +38,8 @@ router.get(
 router.put(
     '/change-role', 
     authenticate, 
-    authorizeRoles(['ADMIN']), 
+    authorizeRoles(['ADMIN']),
+    auditLog({ action: 'change_role', resource: 'user' }),
     changeRole
 )
 

@@ -11,10 +11,11 @@ const {
 const { upload } = require('../utils/upload')
 const authenticate = require('../middlewares/authenticate')
 const authorizeRoles = require('../middlewares/permission')
+const auditLog = require('../middlewares/auditLogger')
 
 const router = express.Router()
 
-router.post('/login', signIn)
+router.post('/login', auditLog({ action: 'login', resource: 'auth' }), signIn)
 router.post(
     '/register', 
     authenticate,
@@ -27,6 +28,7 @@ router.post(
     authenticate,
     authorizeRoles(['ADMIN']), 
     upload.single('file'),
+    auditLog({ action: 'add_faculty_bulk', resource: 'users' }),
     addFacultyBulk
 )
 

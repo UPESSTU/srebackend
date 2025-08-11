@@ -93,7 +93,6 @@ exports.getTemplates = async (req, res) => {
 
 exports.getTemplate = async (templateFor) => {
     try {
-
         const response = await EmailTemplate.findOne({ templateFor: templateFor })
 
         if(!response)
@@ -105,3 +104,5 @@ exports.getTemplate = async (templateFor) => {
         return false
     }
 }
+
+// No default templates needed as per requirements

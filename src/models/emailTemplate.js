@@ -12,7 +12,7 @@ const emailTemplateSchema = Schema({
     },
     templateFor: {
         type: String,
-        enum: ['REMINDER', 'ASSIGNED'],
+        enum: ['REMINDER', 'ASSIGNED', 'STATUS_UPDATE'],
         unique: true,
         required: true
     },

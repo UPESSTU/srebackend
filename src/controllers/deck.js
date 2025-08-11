@@ -885,62 +885,53 @@ exports.changeStatusOfDeck = async (req, res) => {
 
         // Send email only after the update is complete
         if (response.statusOfDeck === 'PICKED_UP' || response.statusOfDeck === 'DROPPED') {
-            const timestamp = response.statusOfDeck === 'PICKED_UP' ? 
-                response.pickUpTimestamp : response.dropTimestamp
-
-            const subject = `Answer Sheets Status: ${
-                response.statusOfDeck === 'PICKED_UP' ? 'Issued' : 'Submitted'
-            } on ${
-                new Date(timestamp * 1000).toLocaleString("en-IN", { 
-                    dateStyle: "long", 
-                    timeStyle: "long", 
-                    timeZone: "Asia/Kolkata"  // Explicitly set India timezone
-                })
+            try {
+                const timestamp = response.statusOfDeck === 'PICKED_UP' ? 
+                    response.pickUpTimestamp : response.dropTimestamp
                 
-            } (${response.qrCodeString})`
-
-            await sendMail({
-                to: response.evaluator.emailAddress,
-                subject: subject,
-                html: `
-                    <html>
-                        <body>
-                            <h3>Answer Sheets Notification</h3>
-                            <p>Dear ${response.evaluator.firstName} ${response.evaluator.lastName},</p>
-                            ${response.statusOfDeck === 'PICKED_UP' ? 
-                                `<p>The answer sheets have been <strong>Issued</strong> on <strong>${
-                                    new Date(response.pickUpTimestamp * 1000).toLocaleString("en-IN", 
-                                    { dateStyle: "long", timeStyle: "long" })}</strong>.</p>` : 
-                                `<p>The answer sheets have been <strong>Submitted</strong> on <strong>${
-                                    new Date(response.dropTimestamp * 1000).toLocaleString("en-IN", 
-                                    { dateStyle: "long", timeStyle: "long" })}</strong>.</p>`
-                            }
-                            <p>Details:</p>
-                            <table border="1" cellpadding="5" cellspacing="0">
-                                <tr>
-                                    <td><strong>QR Code</strong></td>
-                                    <td>${response.qrCodeString}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Status</strong></td>
-                                    <td>${response.statusOfDeck=='DROPPED' ? `Submitted`:`Issued`}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Number Of Total Students</strong></td>
-                                    <td>${response.studentCount}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Number Of Students Present</strong></td>
-                                    <td>${response.numberOfAnswerSheets}</td>
-                                </tr>
-                            </table>
-                            <p>Please take the necessary actions if required.</p>
-                            <p>Regards,<br/>COE Team</p>
-                            <p style="font-size:4px;">*This is an automated mail*</p>
-                        </body>
-                    </html>
-                `
-            })
+                // Get the email template from the database
+                const emailTemplate = await getTemplate('STATUS_UPDATE')
+                
+                if (!emailTemplate) {
+                    logger.error('STATUS_UPDATE email template not found')
+                    return res.status(500).json({
+                        error: true,
+                        message: "Email template not found"
+                    })
+                }
+                
+                // Prepare data for template
+                const emailData = {
+                    evaluatorName: `${response.evaluator.firstName} ${response.evaluator.lastName}`,
+                    statusAction: response.statusOfDeck === 'PICKED_UP' ? 'Issued' : 'Submitted',
+                    timestamp: new Date(timestamp * 1000).toLocaleString("en-IN", { 
+                        dateStyle: "long", 
+                        timeStyle: "long", 
+                        timeZone: "Asia/Kolkata"
+                    }),
+                    qrCodeString: response.qrCodeString,
+                    status: response.statusOfDeck === 'DROPPED' ? 'Submitted' : 'Issued',
+                    totalStudents: response.studentCount,
+                    presentStudents: response.numberOfAnswerSheets
+                }
+                
+                // Compile template with Handlebars
+                const template = Handlebars.compile(emailTemplate.html)
+                const subject = Handlebars.compile(emailTemplate.subject)
+                
+                const emailTemplateWithData = template(emailData)
+                const emailSubjectWithData = subject(emailData)
+                
+                // Send email
+                await sendMail({
+                    to: response.evaluator.emailAddress,
+                    subject: emailSubjectWithData,
+                    html: emailTemplateWithData
+                })
+            } catch (err) {
+                logger.error(`Error sending status update email: ${err.message || err.toString()}`)
+                // Continue execution even if email fails
+            }
         }
 
         return res.json({

@@ -5,6 +5,7 @@ const {upload} = require('../utils/upload')
 
 const authenticate = require('../middlewares/authenticate')
 const authorizeRoles = require('../middlewares/permission')
+const auditLog = require('../middlewares/auditLogger')
 
 const { 
     uploadDeck, 
@@ -34,27 +35,32 @@ router.post(
     '/status',
     authenticate,
     authorizeRoles(['ADMIN', 'MODERATOR']),
+    auditLog({ action: 'update_status', resource: 'deck' }),
     changeStatusOfDeck
 )
 router.post(
     '/count',
     authenticate,
     authorizeRoles(['ADMIN', 'MODERATOR']),
-    changeAnswerSheetCount
+    changeAnswerSheetCount,
+    auditLog({ action: 'update_answer_sheet_count', resource: 'deck' })
 )
 
 router.delete(
     '/delete',
     authenticate,
     authorizeRoles(['ADMIN']),
+    auditLog({ action: 'delete_all', resource: 'decks' }),
     deleteAllDecks
+        
 )
 
 router.put(
     '/update',
     authenticate,
     authorizeRoles(['ADMIN', 'MODERATOR']),
-    updateDeck
+    updateDeck,
+    auditLog({ action: 'update', resource: 'deck' })
 )
 
 // router.get(
