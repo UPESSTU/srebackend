@@ -173,26 +173,9 @@ exports.generateSelectedQrCodes = async (req, res) => {
             examName: examName
         };
 
-        // Render the template using the specific template for selected QR codes
+        // Render the template and send HTML directly like in bulk generation
         const html = await renderTemplate("selected-pdf", data);
-
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.setContent(html, {
-            waitUntil: 'networkidle2'
-        });
-        
-        const pdfPath = path.join(__dirname, '..', 'public', 'selected-qrcodes.pdf');
-        await page.pdf({
-            path: pdfPath,
-            margin: {
-                left: '5mm',
-                right: '5mm',
-            }
-        });
-
-        await browser.close();
-        res.sendFile(pdfPath);
+        res.send(html);
 
     } catch (err) {
         logger.error(`Error: ${err.message || err.toString()}`);
