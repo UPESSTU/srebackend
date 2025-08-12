@@ -513,14 +513,33 @@ exports.getDecks = async (req, res) => {
         const startDate = req.query.startDate;
         const endDate = req.query.endDate;
         
-        if (startDate && endDate) {
-            // Both startDate and endDate are provided, so filter by date range
-            query.examDate = {
-                $gte: Number(startDate),
-                $lte: Number(endDate)
-            };
-            logger.info(`Filtering by date range: ${startDate} to ${endDate}`);
+        if (startDate || endDate) {
+            query.examDate = {};
+            
+            if (startDate) {
+                const startTimestamp = Number(startDate);
+                if (!isNaN(startTimestamp)) {
+                    query.examDate.$gte = startTimestamp;
+                    logger.info(`Set start date filter: ${startTimestamp} (${new Date(startTimestamp * 1000).toISOString()})`);
+                }
+            }
+            
+            if (endDate) {
+                const endTimestamp = Number(endDate);
+                if (!isNaN(endTimestamp)) {
+                    query.examDate.$lte = endTimestamp;
+                    logger.info(`Set end date filter: ${endTimestamp} (${new Date(endTimestamp * 1000).toISOString()})`);
+                }
+            }
+            
+            // If the query.examDate is empty (no valid dates), remove it
+            if (Object.keys(query.examDate).length === 0) {
+                delete query.examDate;
+            }
+            
+            logger.info(`Final date query: ${JSON.stringify(query.examDate)}`);
         }
+        
         if (programName) {
             query.programName = { $regex: programName, $options: 'i' };
         }
@@ -1341,8 +1360,21 @@ exports.getFilterOptions = async (req, res) => {
         // Format the data
         const filterOptions = {
             examDate: examDates.map(date => {
-                const formattedDate = new Date(date * 1000).toLocaleDateString();
-                return { text: formattedDate, value: formattedDate };
+                // Convert Unix timestamp to Date object
+                const dateObj = new Date(date * 1000);
+                
+                // Format the date in DD/MM/YYYY format consistently
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const year = dateObj.getFullYear();
+                const formattedDate = `${day}/${month}/${year}`;
+                
+                // Return both the formatted date and the original timestamp
+                return { 
+                    text: formattedDate, 
+                    value: formattedDate,
+                    timestamp: date // Include original timestamp for filtering
+                };
             }),
             programName: programNames.map(name => ({ text: name, value: name })),
             school: schools.map(school => ({ text: school, value: school })),
