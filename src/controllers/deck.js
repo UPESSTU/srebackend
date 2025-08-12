@@ -139,10 +139,19 @@ exports.countDecks = async (req, res) => {
 
 exports.generateSelectedQrCodes = async (req, res) => {
     try {
-        const { selectedIds, examName } = req.body;
+        const { ids, examName } = req.body;
+        
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({
+                error: true,
+                message: "Invalid request: ids array is required",
+                errorJSON: {},
+                errorString: "ids array is required"
+            });
+        }
         
         // Convert string IDs to ObjectIds
-        const objectIds = selectedIds.map(id => new Types.ObjectId(id));
+        const objectIds = ids.map(id => new Types.ObjectId(id));
         
         // Fetch selected records
         const selectedRecords = await Deck.find({ _id: { $in: objectIds } }).populate('evaluator').lean();
@@ -1369,36 +1378,19 @@ exports.getFilterOptions = async (req, res) => {
 
 exports.generateSelectedPamplets = async (req, res) => {
     try {
-        // Handle both GET and POST requests
-        const { ids, examName } = req.method === 'POST' ? req.body : req.query;
+        // Get IDs and exam name from request body
+        const { ids, examName } = req.body;
         
-        let deckIds;
-        if (req.method === 'POST') {
-            // For POST request, ids should be an array
-            if (!Array.isArray(ids)) {
-                return res.status(400).json({
-                    error: true,
-                    message: "Invalid format: ids should be an array"
-                });
-            }
-            deckIds = ids.map(id => new Types.ObjectId(id));
-        } else {
-            // For GET request, ids is a comma-separated string
-            if (!ids || typeof ids !== 'string') {
-                return res.status(400).json({
-                    error: true,
-                    message: "Invalid format: ids should be a comma-separated string"
-                });
-            }
-            deckIds = ids.split(',').map(id => new Types.ObjectId(id));
-        }
-        
-        if (!ids) {
+        // Validate the input
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return res.status(400).json({
                 error: true,
-                message: "No IDs provided"
+                message: "Invalid format: ids should be a non-empty array"
             });
         }
+        
+        // Convert string IDs to ObjectIds
+        const deckIds = ids.map(id => new Types.ObjectId(id));
 
         // Split the comma-separated IDs and ensure they are valid ObjectIds
         // const deckIds = ids.split(',').map(id => new Types.ObjectId(id));
@@ -1436,48 +1428,9 @@ exports.generateSelectedPamplets = async (req, res) => {
 
         // Render the template using the specific template for selected QR codes
         const html = await renderTemplate("selected-pdf", data);
+//  const html = await renderTemplate("pdf", data)
 
-        // Launch browser and create PDF
-        const browser = await puppeteer.launch({
-            args: ['--no-sandbox']
-        });
-        const page = await browser.newPage();
-        await page.setContent(html, {
-            waitUntil: 'networkidle2'
-        });
-
-        // Generate PDF with optimized settings
-        const pdfPath = path.join(__dirname, '..', 'public', 'selected-pamplets.pdf');
-        await page.pdf({
-            path: pdfPath,
-            margin: {
-                left: '5mm',
-                right: '5mm',
-            },
-            format: 'A4',
-            printBackground: true,
-            preferCSSPageSize: true,
-        });
-
-        await browser.close();
-
-        // Create read stream for the PDF
-        const fileStream = fs.createReadStream(pdfPath);
-        
-        // Set response headers
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=selected-pamplets.pdf');
-        
-        // Pipe the file to the response
-        fileStream.pipe(res);
-        
-        // Clean up the file after sending
-        fileStream.on('end', () => {
-            fs.unlink(pdfPath, (err) => {
-                if (err) logger.error(`Error deleting temporary PDF: ${err}`);
-            });
-        });
-
+        res.send(html)
     } catch (err) {
         logger.error(`Error generating selected pamplets: ${err.message || err.toString()}`);
         res.status(400).json({
