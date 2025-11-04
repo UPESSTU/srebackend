@@ -429,7 +429,8 @@ exports.getDecks = async (req, res) => {
             studentCount,
             rackNumber,
             qrCodeString,
-            numberOfAnswerSheets
+            numberOfAnswerSheets,
+            updatedAt,
         } = req.query
 
 
@@ -569,6 +570,19 @@ exports.getDecks = async (req, res) => {
         }
         if (numberOfAnswerSheets) {
             query.numberOfAnswerSheets = parseInt(numberOfAnswerSheets);
+        }
+        if (updatedAt) {
+            // Handle updatedAt date filtering
+            try {
+                const dateObj = new Date(updatedAt);
+                if (!isNaN(dateObj.getTime())) {
+                    const startOfDay = new Date(dateObj.setHours(0, 0, 0, 0)).getTime() / 1000;
+                    const endOfDay = new Date(dateObj.setHours(23, 59, 59, 999)).getTime() / 1000;
+                    query.updatedAt = { $gte: startOfDay, $lte: endOfDay };
+                }
+            } catch (err) {
+                logger.error(`Date parsing error: ${err.message}`);
+            }
         }
 
         // Handle evaluator email filtering properly
@@ -1061,6 +1075,106 @@ exports.changeStatusOfDeck = async (req, res) => {
             errorJSON: err,
             errorString: err.toString()
         })
+    }
+}
+exports.changeStatusOfDeckBulk = async (req, res) => {
+    try {
+        const { action } = req.query;
+        const { deckIds } = req.body;
+
+        if (!deckIds || !Array.isArray(deckIds) || deckIds.length === 0) {
+            return res.status(400).json({
+                error: true,
+                message: 'deckIds (array) is required'
+            });
+        }
+
+        // Allowed actions
+        const allowed = ['pickup', 'drop'];
+        if (!allowed.includes(action)) {
+            return res.status(400).json({ error: true, message: 'Invalid action' });
+        }
+
+        const result = {
+            updated: 0,
+            failed: 0,
+            errors: []
+        };
+
+        for (const id of deckIds) {
+            try {
+                const deck = await Deck.findById(id).populate('evaluator');
+                if (!deck) {
+                    result.failed++;
+                    result.errors.push({ id, message: 'Deck not found' });
+                    continue;
+                }
+
+                // Validation for drop
+                if (action === 'drop') {
+                    if (deck.statusOfDeck !== 'PICKED_UP') {
+                        result.failed++;
+                        result.errors.push({ id, message: 'Cannot drop - not picked up' });
+                        continue;
+                    }
+                    if (!deck.numberOfAnswerSheets || deck.numberOfAnswerSheets === 0) {
+                        result.failed++;
+                        result.errors.push({ id, message: 'Cannot drop - no answer sheets picked up' });
+                        continue;
+                    }
+                }
+
+                const update = {};
+                if (action === 'pickup') {
+                    update.statusOfDeck = 'PICKED_UP';
+                    update.pickUpTimestamp = Math.floor(new Date().getTime() / 1000);
+                }
+                if (action === 'drop') {
+                    update.statusOfDeck = 'DROPPED';
+                    update.dropTimestamp = Math.floor(new Date().getTime() / 1000);
+                }
+
+                const updated = await Deck.findByIdAndUpdate({ _id: deck._id }, update, { new: true }).populate('evaluator');
+
+                // Try to send email (best-effort)
+                if (updated.statusOfDeck === 'PICKED_UP' || updated.statusOfDeck === 'DROPPED') {
+                    try {
+                        const timestamp = updated.statusOfDeck === 'PICKED_UP' ? updated.pickUpTimestamp : updated.dropTimestamp;
+                        const emailTemplate = await getTemplate('STATUS_UPDATE');
+                        if (emailTemplate && updated.evaluator && updated.evaluator.emailAddress) {
+                            const emailData = {
+                                evaluatorName: `${updated.evaluator.firstName} ${updated.evaluator.lastName}`,
+                                statusAction: updated.statusOfDeck === 'PICKED_UP' ? 'Issued' : 'Submitted',
+                                timestamp: new Date(timestamp * 1000).toLocaleString("en-IN", { dateStyle: 'long', timeStyle: 'long', timeZone: 'Asia/Kolkata' }),
+                                qrCodeString: updated.qrCodeString,
+                                status: updated.statusOfDeck === 'DROPPED' ? 'Submitted' : 'Issued',
+                                totalStudents: updated.studentCount,
+                                presentStudents: updated.numberOfAnswerSheets
+                            };
+                            const template = Handlebars.compile(emailTemplate.html);
+                            const subject = Handlebars.compile(emailTemplate.subject);
+                            const emailHtml = template(emailData);
+                            const emailSub = subject(emailData);
+                            await sendMail({ to: updated.evaluator.emailAddress, subject: emailSub, html: emailHtml });
+                        }
+                    } catch (err) {
+                        logger.error(`Error sending status update email for ${id}: ${err.message || err.toString()}`);
+                        // continue even if email fails
+                    }
+                }
+
+                result.updated++;
+            } catch (err) {
+                result.failed++;
+                result.errors.push({ id, message: err.message || err.toString() });
+            }
+        }
+
+        return res.json({ success: true, message: 'Bulk update completed', dbRes: result });
+
+    } catch (err) {
+        logger.error(`Error: ${err.message || err.toString()}`);
+        return res.status(400).json({ error: true, message: 'An Unexpected Error Occurred', errorJSON: err, errorString: err.toString() });
     }
 }
 exports.manualReminderToDrop = async (req, res) => {

@@ -14,6 +14,7 @@ const {
     getAssingedDecks,
     addDeck,
     changeStatusOfDeck,
+    changeStatusOfDeckBulk,
     changeAnswerSheetCount,
     manualReminderToDrop,
     sendAssignmentMail,
@@ -38,6 +39,14 @@ router.post(
     authorizeRoles(['ADMIN', 'MODERATOR']),
     auditLog({ action: 'update_status', resource: 'deck' }),
     changeStatusOfDeck
+)
+router.post(
+    '/status/bulk',
+    authenticate,
+    authorizeRoles(['ADMIN', 'MODERATOR']),
+    auditLog({ action: 'bulk_update_status', resource: 'deck' }),
+    // controller will handle bulk update
+    changeStatusOfDeckBulk
 )
 router.post(
     '/count',
