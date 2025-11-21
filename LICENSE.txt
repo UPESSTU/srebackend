@@ -1,0 +1,5 @@
+This software is the intellectual property of Ansh Garg.
+UPES SR&E Department is granted a non-exclusive license to use the software
+for internal academic administration purposes only.
+Redistribution, modification, publication, or use outside UPES is strictly prohibited
+without written permission from the author.
